@@ -54,7 +54,7 @@
           </div>
           
           <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">日程候補 <span class="text-xs text-gray-500 font-normal ml-2">※一番下の行を入力すると自動で枠が追加されます</span></label>
+            <label class="block text-sm font-bold mb-2 text-gray-700">日程候補 <span class="text-xs text-gray-500 font-normal ml-2">※時間まで入力後にEnterで枠が追加されます</span></label>
             <div class="overflow-x-auto rounded border border-gray-200">
               <table class="min-w-full bg-white text-sm">
                 <thead class="bg-gray-100 border-b">
@@ -66,7 +66,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">ゲスト <span class="text-xs text-gray-500 font-normal ml-2">※一番下の行を入力すると自動で枠が追加されます</span></label>
+            <label class="block text-sm font-bold mb-2 text-gray-700">ゲスト <span class="text-xs text-gray-500 font-normal ml-2">※メールアドレスまで入力後にEnterで枠が追加されます</span></label>
             <div class="overflow-x-auto rounded border border-gray-200">
               <table class="min-w-full bg-white text-sm">
                 <thead class="bg-gray-100 border-b">
@@ -138,7 +138,7 @@
     </div>
   </div>
 
-  <!-- 各種モーダル (変更なし) -->
+  <!-- 各種モーダル -->
   <div id="modal-invite" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
       <div class="p-5 border-b bg-gray-50 flex justify-between items-center">
@@ -146,7 +146,7 @@
         <button onclick="closeModal('modal-invite')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
       </div>
       <div class="p-6 flex-1 overflow-y-auto">
-        <p class="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded">以下の文面でゲストに招待メールが送信されます。<br>※ <code>{ゲスト名}</code> と <code>{回答用URL}</code> は自動的に変換されます。</p>
+        <p class="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded">以下の文面でゲストに招待メールが送信されます。<br>※ <code>{ゲスト名}</code> と <code>{回答用URL}</code> はそのまま残してください。自動的に変換されます。</p>
         <textarea id="invite-email-body" class="w-full h-72 border border-gray-300 p-4 rounded bg-gray-50 font-mono text-sm leading-relaxed focus:bg-white"></textarea>
       </div>
       <div class="p-5 border-t flex justify-end space-x-4 bg-gray-50">
@@ -214,18 +214,16 @@
       startApp();
     };
 
-    // --- API通信用関数 (GASの doPost へ fetch でアクセスします) ---
     async function callApi(action, payload = {}) {
       if (GAS_API_URL === "YOUR_GAS_WEB_APP_URL_HERE") {
         alert("設定エラー: GAS_API_URL が設定されていません。コード内のURLを書き換えてください。");
         throw new Error("GAS URL Not Set");
       }
-      
       payload.action = action;
       try {
         const response = await fetch(GAS_API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain' }, // CORSを回避するため text/plain を使用
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(payload)
         });
         return await response.json();
@@ -286,14 +284,19 @@
           if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
             e.preventDefault();
             checkAndAddRow(target);
+            
             const focusables = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea, button:not([disabled])'))
               .filter(el => !el.closest('.hidden') && el.offsetWidth > 0 && el.offsetHeight > 0);
+            
             const idx = focusables.indexOf(target);
             if (idx > -1 && idx + 1 < focusables.length) focusables[idx + 1].focus();
           }
         }
       });
-      document.addEventListener('focusout', function(e) { checkAndAddRow(e.target); });
+
+      document.addEventListener('focusout', function(e) {
+        checkAndAddRow(e.target);
+      });
     }
 
     function initCreateForms() {
@@ -303,10 +306,11 @@
 
     function addScheduleRow() {
       const tbody = document.getElementById('create-schedules-body');
+      const count = tbody.children.length + 1;
       const tr = document.createElement('tr');
       tr.className = "border-b border-gray-100 hover:bg-gray-50";
       tr.innerHTML = `
-        <td class="p-2 text-center text-gray-500 font-bold bg-gray-50 w-24">日程候補${tbody.children.length + 1}</td>
+        <td class="p-2 text-center text-gray-500 font-bold bg-gray-50 w-24">日程候補${count}</td>
         <td class="p-2 border-r"><input type="date" max="9999-12-31" class="w-full border rounded p-2 sch-date bg-white focus:ring-2 focus:ring-blue-400"></td>
         <td class="p-2"><input type="time" class="w-full border rounded p-2 sch-time bg-white focus:ring-2 focus:ring-blue-400"></td>
       `;
@@ -318,7 +322,7 @@
       const tr = document.createElement('tr');
       tr.className = "border-b border-gray-100 hover:bg-gray-50";
       tr.innerHTML = `
-        <td class="p-2"><input type="text" class="w-full border rounded p-2 gst-name bg-white focus:ring-2 focus:ring-blue-400" placeholder="氏名"></td>
+        <td class="p-2 border-r"><input type="text" class="w-full border rounded p-2 gst-name bg-white focus:ring-2 focus:ring-blue-400" placeholder="氏名"></td>
         <td class="p-2"><input type="email" class="w-full border rounded p-2 gst-email bg-white focus:ring-2 focus:ring-blue-400" placeholder="メールアドレス"></td>
       `;
       tbody.appendChild(tr);
@@ -366,31 +370,34 @@
     function openInviteEmailModal() {
       const data = collectEventData();
       if (!data) return;
-      // メール文面の {回答用URL} は、GASではなくこのHTML側のベースURLを使います
+      
+      // メッセージが入力されていればメール文面にも差し込む
+      const msgText = data.message ? `\n【主催者からのメッセージ】\n${data.message}\n` : '';
+
+      // {回答用URL} はGAS側で本物のURLに置換されるマジックワードとしてそのまま残します
       const defaultBody = 
-`{ゲスト名} 様\n\n「${data.eventName}」の日程調整についてご案内いたします。
+`{ゲスト名} 様\n\n「${data.eventName}」の日程調整についてご案内いたします。${msgText}
 以下の専用URLよりご都合をお知らせください。\n
 ■ 回答締切期限: ${data.deadline}\n
 ▼ 回答専用ページはこちら
-${APP_BASE_URL}?eventId=※自動挿入&guestId=※自動挿入`;
+{回答用URL}`;
+      
       document.getElementById('invite-email-body').value = defaultBody;
       document.getElementById('modal-invite').classList.remove('hidden');
     }
 
     async function executeCreateEvent() {
       const data = collectEventData();
-      let emailBody = document.getElementById('invite-email-body').value;
-      // ベースURLをGAS側に送る前に、{回答用URL}のテンプレートを正しい形式に整えます
-      emailBody = emailBody.replace(`${APP_BASE_URL}?eventId=※自動挿入&guestId=※自動挿入`, `${APP_BASE_URL}?eventId={イベントID}&guestId={ゲストID}`);
+      if (!data) return;
+      const emailBody = document.getElementById('invite-email-body').value;
 
       closeModal('modal-invite');
       showLoading(true);
 
       try {
-        const res = await callApi('createEventAndSendEmails', { data, emailBody });
+        const res = await callApi('createEventAndSendEmails', { data, emailBody, baseUrl: APP_BASE_URL });
         showLoading(false);
         if (res.success) {
-          // 主催者用URLも自サイトのURLで組み立てる
           const myOrganizerUrl = `${APP_BASE_URL}?eventId=${res.eventId}&token=${res.organizerToken}`;
           document.getElementById('organizer-url-input').value = myOrganizerUrl;
           document.getElementById('btn-go-dashboard').href = myOrganizerUrl;
@@ -493,9 +500,11 @@ ${APP_BASE_URL}?eventId=※自動挿入&guestId=※自動挿入`;
           const val = ans ? ans.attendance : '';
           if (g.guestId === SERVER_GUEST_ID && !isClosed) {
             rowHtml += `<td class="border p-1 text-center bg-blue-50">
-              <select class="w-full border-0 rounded p-2 text-center outline-none bg-transparent ans-select font-bold text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-400" data-sch="${sch.scheduleId}">
-                <option value=""></option><option value="〇" ${val==='〇'?'selected':''}>〇</option>
-                <option value="×" ${val==='×'?'selected':''}>×</option><option value="△" ${val==='△'?'selected':''}>△</option>
+              <select class="w-full border-0 rounded p-2 text-center outline-none bg-transparent ans-select font-bold text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-400" data-sch="${sch.scheduleId}" required>
+                <option value="" disabled ${val===''?'selected':''}>-</option>
+                <option value="〇" ${val==='〇'?'selected':''}>〇</option>
+                <option value="×" ${val==='×'?'selected':''}>×</option>
+                <option value="△" ${val==='△'?'selected':''}>△</option>
               </select></td>`;
           } else {
             let color = val==='〇' ? 'text-blue-600 font-bold' : (val==='×' ? 'text-red-600' : '');
