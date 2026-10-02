@@ -7,31 +7,44 @@
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; color: #333; margin: 0; padding: 20px; }
     .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    h1, h2 { color: #2c3e50; }
-    .header-flex { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+    h1, h2, h3 { color: #2c3e50; }
+    .header-flex { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
     .legend { font-size: 0.9em; color: #555; background: #f8f9fa; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; }
     .form-group { margin-bottom: 20px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
-    input[type="text"], input[type="email"], input[type="date"], input[type="time"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="time"], input[type="password"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
     .btn { background: #3498db; color: #fff; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; width: 100%; }
     .btn:hover { background: #2980b9; }
     .btn-secondary { background: #95a5a6; width: auto; padding: 8px 15px; font-size: 14px; }
     .btn-secondary:hover { background: #7f8c8d; }
+    .btn-success { background: #27ae60; }
+    .btn-success:hover { background: #2ecc71; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
     th { background: #f8f9fa; }
     .view-section { display: none; }
     .active-view { display: block; }
     .spinner { display: none; color: #e67e22; font-weight: bold; margin-top: 10px; text-align: center; }
-    .dashboard-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
-    
-    /* 認証用タブ */
+    .dashboard-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background: #fafafa; flex-wrap: wrap; gap: 10px; }
     .auth-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
     .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; color: #777; transition: 0.3s; }
     .auth-tab.active { color: #3498db; border-bottom: 3px solid #3498db; margin-bottom: -2px; }
+    .admin-panel { background: #f0f8ff; border: 2px solid #bce8f1; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    
+    /* モーダル用のスタイル */
+    #msg-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
+    .modal-content { background: #fff; padding: 30px; border-radius: 8px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
+
+<!-- システム標準のalert()を置き換えるカスタムメッセージ表示 -->
+<div id="msg-modal">
+  <div class="modal-content">
+    <p id="msg-text" style="margin-bottom: 25px; font-weight: bold; color: #333; line-height: 1.5;"></p>
+    <button class="btn" style="width: auto; padding: 8px 30px;" onclick="closeMessage()">OK</button>
+  </div>
+</div>
 
 <div class="container">
   
@@ -39,7 +52,7 @@
   <div id="auth-view" class="view-section">
     <div class="auth-tabs">
       <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">ログイン</div>
-      <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">新規アカウント登録</div>
+      <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">初回アカウント登録</div>
     </div>
 
     <!-- ログインフォーム -->
@@ -102,6 +115,32 @@
       <h1 id="ans-title">イベント読込中...</h1>
       <div class="legend">〇：出席　×：欠席　△：未定</div>
     </div>
+    
+    <!-- 主催者用：管理パネル (認証時のみ表示) -->
+    <div id="admin-panel" class="admin-panel" style="display:none;">
+      <h2 style="margin-top:0; color:#31708f;">👑 主催者管理メニュー</h2>
+      
+      <div style="display:flex; flex-wrap:wrap; gap:20px;">
+        <!-- 招待エリア -->
+        <div style="flex:1; min-width:300px; background:#fff; padding:15px; border-radius:4px;">
+          <h3 style="margin-top:0; color:#3498db;">1. 招待メールを送る</h3>
+          <div class="form-group"><label>ゲストのメールアドレス（改行で複数可）</label><textarea id="invite-emails" rows="2" placeholder="guest1@example.com&#10;guest2@example.com"></textarea></div>
+          <div class="form-group"><label>追加メッセージ</label><textarea id="invite-message" rows="2"></textarea></div>
+          <button class="btn" onclick="executeSendInvites()">招待を送信</button>
+          <div id="invite-spinner" class="spinner">送信中...</div>
+        </div>
+        
+        <!-- 確定エリア -->
+        <div style="flex:1; min-width:300px; background:#fff; padding:15px; border-radius:4px;">
+          <h3 style="margin-top:0; color:#e67e22;">2. 日程を確定する</h3>
+          <div class="form-group"><label>確定日時</label><select id="finalize-date"></select></div>
+          <div class="form-group"><label>確定メッセージ</label><textarea id="finalize-message" rows="2"></textarea></div>
+          <button class="btn" style="background:#e67e22;" onclick="executeFinalize()">確定を通知</button>
+          <div id="finalize-spinner" class="spinner">送信中...</div>
+        </div>
+      </div>
+    </div>
+
     <div id="ans-details" style="margin-bottom:20px; background:#f9f9f9; padding:15px; border-radius:4px; border-left:4px solid #3498db;"></div>
     
     <h2>日程アンケート</h2>
@@ -111,8 +150,12 @@
       <h3 style="color:#27ae60;">あなたの回答を入力</h3>
       <div class="form-group"><label>お名前</label><input type="text" id="guest-name"></div>
       <div class="form-group"><label>メールアドレス (任意)</label><input type="email" id="guest-email"></div>
-      <button class="btn" style="background:#27ae60;" onclick="executeSubmitAnswer()">回答を送信する</button>
+      <button class="btn btn-success" onclick="executeSubmitAnswer()">回答を送信する</button>
       <div id="ans-spinner" class="spinner">送信中...</div>
+    </div>
+    
+    <div style="text-align:right; margin-top:30px;">
+      <a href="#" onclick="switchView('auth-view')" style="color:#999; font-size:0.8em; text-decoration:underline;">主催者ログイン</a>
     </div>
   </div>
 </div>
@@ -125,9 +168,18 @@
   
   let currentEventId = null;
   let currentEventData = null;
-  let loggedInUser = null; // {name, email}
+  let loggedInUser = null; 
 
-  // --- 画面の表示切り替え ---
+  // カスタムメッセージ表示（alertの代わり）
+  function showMessage(text) {
+    document.getElementById('msg-text').innerHTML = text.replace(/\n/g, '<br>');
+    document.getElementById('msg-modal').style.display = 'flex';
+  }
+  function closeMessage() {
+    document.getElementById('msg-modal').style.display = 'none';
+  }
+
+  // 画面の表示切り替え
   function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
     document.getElementById(viewId).classList.add('active-view');
@@ -143,25 +195,25 @@
     document.getElementById('form-' + tab).style.display = 'block';
   }
 
-  // --- 初期化＆ルーティング（非常に重要） ---
   window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
     const eventId = urlParams.get('eventId');
     
-    // 【仕様】URLにeventIdがある（招待メールから来た）場合は、ログイン等すべて無視して回答画面へ直行
+    const session = localStorage.getItem('appSession');
+    if (session) loggedInUser = JSON.parse(session);
+
     if (eventId) {
+      // URLにIDがある場合はすべてをスキップして回答画面へ
       currentEventId = eventId;
       switchView('answer-view');
       loadEventData(eventId);
     } else {
-      // 通常アクセス（主催者）の場合はログインチェック
       checkAuth();
     }
     
     initCandidateRows();
   };
 
-  // --- API通信用関数 ---
   async function callApi(action, payload) {
     const response = await fetch(GAS_API_URL, {
       method: "POST",
@@ -173,22 +225,16 @@
     return res.data;
   }
 
-  // --- 認証機能 (ログイン/登録) ---
   function checkAuth() {
-    // 過去にログインしたセッション（記憶）があれば自動ログイン
-    const session = localStorage.getItem('appSession');
-    if (session) {
-      loggedInUser = JSON.parse(session);
+    if (loggedInUser) {
       loadDashboard();
       return;
     }
-    
-    // なければログイン画面を表示し、過去のアドレスがあれば事前に入力しておく
     switchView('auth-view');
     const savedEmail = localStorage.getItem('savedEmail');
     if (savedEmail) {
       document.getElementById('login-email').value = savedEmail;
-      document.getElementById('login-password').focus(); // パスワードにカーソルを合わせる
+      document.getElementById('login-password').focus();
     }
   }
 
@@ -197,14 +243,14 @@
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
     
-    if(!name || !email || !password) { alert("すべての項目を入力してください。"); return; }
+    if(!name || !email || !password) { showMessage("すべての項目を入力してください。"); return; }
     
     document.getElementById('reg-spinner').style.display = 'block';
     try {
       const user = await callApi("register", { name, email, password });
       finishLogin(user);
     } catch (e) {
-      alert(e.message);
+      showMessage(e.message);
     } finally {
       document.getElementById('reg-spinner').style.display = 'none';
     }
@@ -214,14 +260,14 @@
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     
-    if(!email || !password) { alert("メールアドレスとパスワードを入力してください。"); return; }
+    if(!email || !password) { showMessage("メールアドレスとパスワードを入力してください。"); return; }
     
     document.getElementById('login-spinner').style.display = 'block';
     try {
       const user = await callApi("login", { email, password });
       finishLogin(user);
     } catch (e) {
-      alert(e.message);
+      showMessage(e.message);
     } finally {
       document.getElementById('login-spinner').style.display = 'none';
     }
@@ -229,20 +275,25 @@
 
   function finishLogin(user) {
     loggedInUser = user;
-    // ログイン状態を保存
     localStorage.setItem('appSession', JSON.stringify(user));
-    // 次回オートコンプリート用にアドレスだけ記憶
     localStorage.setItem('savedEmail', user.email);
-    loadDashboard();
+    
+    // イベント表示中（管理画面からログイン）の場合はダッシュボードに飛ばさずパネルを表示
+    if (currentEventId) {
+      switchView('answer-view');
+      renderAdminPanel();
+    } else {
+      loadDashboard();
+    }
   }
 
   function logout() {
     localStorage.removeItem('appSession');
     loggedInUser = null;
-    checkAuth();
+    currentEventId = null;
+    window.location.href = window.location.origin + window.location.pathname; // トップへ戻る
   }
 
-  // --- ダッシュボード機能 ---
   async function loadDashboard() {
     switchView('dashboard-view');
     document.getElementById('dash-title').textContent = `${loggedInUser.name} さんのダッシュボード`;
@@ -262,7 +313,10 @@
         html += `
           <div class="dashboard-item">
             <div><strong>${ev.eventName}</strong><br><small>締切: ${ev.deadline}</small></div>
-            <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white;">管理 / 回答確認</a>
+            <div>
+              <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white; display:inline-block; margin-right:5px;">管理・回答確認</a>
+              <button class="btn-secondary" style="background:#f39c12; border:none;" onclick="navigator.clipboard.writeText('${url}'); showMessage('URLをコピーしました');">URLコピー</button>
+            </div>
           </div>
         `;
       });
@@ -272,7 +326,7 @@
     }
   }
 
-  // --- イベント作成機能 ---
+  // --- イベント作成 ---
   function initCandidateRows() {
     const tbody = document.getElementById('candidate-body');
     tbody.innerHTML = '';
@@ -309,7 +363,7 @@
 
   async function executeCreateEvent() {
     const eventName = document.getElementById('event-name').value;
-    if (!eventName) { alert("イベント名は必須です。"); return; }
+    if (!eventName) { showMessage("イベント名は必須です。"); return; }
 
     const candidates = [];
     document.querySelectorAll('#candidate-body tr').forEach(tr => {
@@ -317,7 +371,7 @@
       const t = tr.querySelector('.cand-time').value;
       if(d && t) candidates.push({ date: d, time: t });
     });
-    if(candidates.length === 0) { alert("最低1つの候補日時を入力してください。"); return; }
+    if(candidates.length === 0) { showMessage("最低1つの候補日時を入力してください。"); return; }
 
     document.getElementById('create-spinner').style.display = 'block';
     
@@ -331,15 +385,14 @@
 
     try {
       const res = await callApi("createEvent", { data: data });
-      // 作成成功したら、そのイベントの管理画面へ移動
       window.location.href = window.location.origin + window.location.pathname + "?eventId=" + res.eventId;
     } catch(e) {
-      alert("作成エラー: " + e.message);
+      showMessage("作成エラー: " + e.message);
       document.getElementById('create-spinner').style.display = 'none';
     }
   }
 
-  // --- 回答画面 (ゲスト用) ---
+  // --- 回答・管理画面 ---
   async function loadEventData(eventId) {
     try {
       currentEventData = await callApi("getEvent", { eventId: eventId });
@@ -350,10 +403,88 @@
         <p style="margin:0 0 5px 0;"><strong>主催者:</strong> ${currentEventData.organizerName}</p>
         <p style="margin:0; white-space:pre-wrap;"><strong>メッセージ:</strong><br>${currentEventData.memo || "なし"}</p>
       `;
+      
+      renderAdminPanel();
       renderMatrix();
     } catch(e) {
       document.getElementById('ans-title').textContent = "エラー: イベントが見つかりません";
       document.getElementById('ans-details').innerHTML = e.message;
+    }
+  }
+
+  function renderAdminPanel() {
+    const adminPanel = document.getElementById('admin-panel');
+    if (loggedInUser && currentEventData && currentEventData.organizerEmail === loggedInUser.email) {
+      adminPanel.style.display = 'block';
+      
+      // 確定日時のプルダウンを生成
+      const select = document.getElementById('finalize-date');
+      select.innerHTML = '<option value="">-- 日時を選択 --</option>';
+      currentEventData.candidates.forEach(cand => {
+        const option = document.createElement('option');
+        const dt = `${cand.date} ${cand.time}`;
+        option.value = dt; option.textContent = dt;
+        select.appendChild(option);
+      });
+    } else {
+      adminPanel.style.display = 'none';
+    }
+  }
+
+  // 管理者：招待メール送信
+  async function executeSendInvites() {
+    const emailsStr = document.getElementById('invite-emails').value;
+    const message = document.getElementById('invite-message').value;
+    
+    if(!emailsStr) { showMessage("メールアドレスを入力してください。"); return; }
+    
+    // 改行で分割し、空行を除去して配列化
+    const guests = emailsStr.split('\n').map(e => e.trim()).filter(e => e).map(e => ({email: e}));
+    if(guests.length === 0) { showMessage("有効なメールアドレスがありません。"); return; }
+
+    document.getElementById('invite-spinner').style.display = 'block';
+    
+    // フロントエンド側で正しい自分のURLを把握して裏側に送る
+    const baseUrl = window.location.origin + window.location.pathname;
+
+    try {
+      await callApi("sendInvites", {
+        data: { eventId: currentEventId, guests: guests, message: message, baseUrl: baseUrl }
+      });
+      showMessage("招待メールを送信しました！\n（送信元は " + currentEventData.organizerEmail + " に設定されています）");
+      document.getElementById('invite-emails').value = "";
+      document.getElementById('invite-message').value = "";
+    } catch(e) {
+      showMessage("送信エラー: " + e.message);
+    } finally {
+      document.getElementById('invite-spinner').style.display = 'none';
+    }
+  }
+
+  // 管理者：確定メール送信
+  async function executeFinalize() {
+    const date = document.getElementById('finalize-date').value;
+    const message = document.getElementById('finalize-message').value;
+    if(!date) { showMessage("確定する日時を選択してください。"); return; }
+
+    // 回答者の中からメールアドレスを入力している人を抽出
+    const guests = currentEventData.answers.filter(ans => ans.guestEmail).map(ans => ({email: ans.guestEmail}));
+    if (guests.length === 0) {
+      showMessage("メールアドレスを登録している回答者がいないため、送信できません。");
+      return;
+    }
+
+    document.getElementById('finalize-spinner').style.display = 'block';
+
+    try {
+      await callApi("finalizeDate", {
+        data: { eventId: currentEventId, guests: guests, fixedDate: date, message: message }
+      });
+      showMessage("確定メールを回答者全員に送信しました！");
+    } catch(e) {
+      showMessage("送信エラー: " + e.message);
+    } finally {
+      document.getElementById('finalize-spinner').style.display = 'none';
     }
   }
 
@@ -362,7 +493,6 @@
     currentEventData.candidates.forEach(cand => { html += `<th>${cand.date}<br>${cand.time}</th>`; });
     html += `</tr></thead><tbody>`;
     
-    // 他のゲストの回答
     currentEventData.answers.forEach(ans => {
       html += `<tr><td style="font-weight:bold;">${ans.guestName}</td>`;
       currentEventData.candidates.forEach((cand, index) => {
@@ -373,7 +503,6 @@
       html += `</tr>`;
     });
     
-    // あなたの入力行
     html += `<tr style="background:#f1f8ff;"><td><span style="color:#555; font-size:0.9em;">(あなたの回答)</span></td>`;
     currentEventData.candidates.forEach((cand, index) => {
       html += `<td>
@@ -391,7 +520,7 @@
 
   async function executeSubmitAnswer() {
     const name = document.getElementById('guest-name').value.trim();
-    if(!name) { alert("お名前は必須です。"); return; }
+    if(!name) { showMessage("お名前は必須です。"); return; }
     
     let answersMap = {};
     currentEventData.candidates.forEach((cand, index) => {
@@ -404,10 +533,10 @@
       await callApi("submitAnswer", {
         data: { eventId: currentEventId, guestName: name, guestEmail: document.getElementById('guest-email').value, answersMap: answersMap }
       });
-      alert("回答を送信しました！");
-      window.location.reload();
+      showMessage("回答を送信しました！");
+      setTimeout(() => { window.location.reload(); }, 1500);
     } catch(e) {
-      alert("送信エラー: " + e.message);
+      showMessage("送信エラー: " + e.message);
       document.getElementById('ans-spinner').style.display = 'none';
     }
   }
