@@ -2,584 +2,415 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>スケジュール調整アプリ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>スケジュール調整アプリ</title>
   <style>
-    .fade-in { animation: fadeIn 0.3s ease-in-out; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .best-schedule { background-color: #fef08a !important; font-weight: bold; }
-    input:focus, select:focus, textarea:focus {
-      outline: none; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); border-color: #3b82f6;
-    }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; color: #333; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h1, h2 { color: #2c3e50; }
+    .header-flex { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+    .legend { font-size: 0.9em; color: #555; background: #f8f9fa; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="time"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .btn { background: #3498db; color: #fff; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; width: 100%; }
+    .btn:hover { background: #2980b9; }
+    .btn-secondary { background: #95a5a6; width: auto; padding: 8px 15px; font-size: 14px; }
+    .btn-secondary:hover { background: #7f8c8d; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background: #f8f9fa; }
+    .view-section { display: none; }
+    .active-view { display: block; }
+    .spinner { display: none; color: #e67e22; font-weight: bold; margin-top: 10px; text-align: center; }
+    .dashboard-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+    
+    /* 認証用タブ */
+    .auth-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+    .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; color: #777; transition: 0.3s; }
+    .auth-tab.active { color: #3498db; border-bottom: 3px solid #3498db; margin-bottom: -2px; }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans min-h-screen pb-10">
+<body>
 
-  <header class="bg-white shadow-sm mb-6">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-      <h1 class="text-xl font-bold text-blue-600">スケジュール調整</h1>
-      <div id="user-info" class="text-sm text-gray-500 font-bold bg-gray-100 px-3 py-1 rounded hidden"></div>
-    </div>
-  </header>
-
-  <div id="toast" class="fixed top-4 right-4 z-50 hidden transition-opacity duration-300">
-    <div id="toast-msg" class="bg-gray-800 text-white px-4 py-3 rounded shadow-lg font-medium"></div>
-  </div>
-
-  <div id="app" class="max-w-5xl mx-auto px-4 relative">
-    <div id="loading" class="absolute inset-0 bg-gray-100 bg-opacity-90 z-40 flex items-center justify-center min-h-[400px] rounded">
-      <div class="flex flex-col items-center">
-        <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-gray-600 font-bold">データを読み込んでいます...</span>
-      </div>
+<div class="container">
+  
+  <!-- 1. ログイン / 新規登録 画面 -->
+  <div id="auth-view" class="view-section">
+    <div class="auth-tabs">
+      <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">ログイン</div>
+      <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">新規アカウント登録</div>
     </div>
 
-    <!-- 新規作成画面 -->
-    <div id="view-create" class="hidden fade-in space-y-6">
-      <div class="bg-white p-8 rounded-xl shadow-md border-t-4 border-blue-500">
-        <h2 class="text-xl font-bold mb-6 border-b pb-3 text-gray-700">アンケート作成フォーム</h2>
-        
-        <div class="space-y-6">
-          <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">イベント名 <span class="text-red-500">*</span></label>
-            <input type="text" id="create-event-name" class="w-full border p-3 rounded bg-gray-50 focus:bg-white transition-colors" placeholder="例：キックオフミーティング">
-          </div>
-          <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">メッセージ</label>
-            <textarea id="create-message" class="w-full border p-3 rounded bg-gray-50 focus:bg-white transition-colors" rows="3" placeholder="ゲストへのメッセージを入力"></textarea>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">日程候補 <span class="text-xs text-gray-500 font-normal ml-2">※時間まで入力後にEnterで枠が追加されます</span></label>
-            <div class="overflow-x-auto rounded border border-gray-200">
-              <table class="min-w-full bg-white text-sm">
-                <thead class="bg-gray-100 border-b">
-                  <tr><th class="p-3 text-left w-24"></th><th class="p-3 text-left">日付</th><th class="p-3 text-left">時間</th></tr>
-                </thead>
-                <tbody id="create-schedules-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">ゲスト <span class="text-xs text-gray-500 font-normal ml-2">※メールアドレスまで入力後にEnterで枠が追加されます</span></label>
-            <div class="overflow-x-auto rounded border border-gray-200">
-              <table class="min-w-full bg-white text-sm">
-                <thead class="bg-gray-100 border-b">
-                  <tr><th class="p-3 text-left">氏名</th><th class="p-3 text-left">メールアドレス</th></tr>
-                </thead>
-                <tbody id="create-guests-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-bold mb-2 text-gray-700">回答締切日時 <span class="text-red-500">*</span></label>
-            <div class="flex space-x-3 max-w-sm">
-              <input type="date" id="create-deadline-date" max="9999-12-31" class="border p-3 rounded bg-gray-50 focus:bg-white w-full">
-              <input type="time" id="create-deadline-time" class="border p-3 rounded bg-gray-50 focus:bg-white w-full">
-            </div>
-          </div>
-        </div>
-        
-        <div class="mt-10 text-center">
-          <button onclick="openInviteEmailModal()" class="bg-blue-600 hover:bg-blue-700 transition-colors text-white font-bold py-4 px-12 rounded-full shadow-lg text-lg">決定</button>
-        </div>
-      </div>
+    <!-- ログインフォーム -->
+    <div id="form-login">
+      <h2>ログイン</h2>
+      <p style="font-size: 0.9em; color: #666;">2回目以降はパスワードを入力するだけでダッシュボードに入れます。</p>
+      <div class="form-group"><label>メールアドレス</label><input type="email" id="login-email"></div>
+      <div class="form-group"><label>パスワード</label><input type="password" id="login-password"></div>
+      <button class="btn" onclick="executeLogin()">ログイン</button>
+      <div id="login-spinner" class="spinner">認証中...</div>
     </div>
 
-    <!-- 回答画面 -->
-    <div id="view-answer" class="hidden fade-in space-y-6">
-      <div class="bg-white p-8 rounded-xl shadow-md border-t-4 border-green-500">
-        <div class="border-b pb-4 mb-6">
-          <h2 id="ans-event-name" class="text-3xl font-bold mb-3 text-gray-800"></h2>
-          <p id="ans-message" class="text-gray-700 whitespace-pre-wrap mb-4 bg-gray-50 p-4 rounded-lg border leading-relaxed"></p>
-          <div class="inline-block bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-full text-sm font-bold shadow-sm">
-            回答締切: <span id="ans-deadline"></span>
-          </div>
-        </div>
-        
-        <div id="organizer-controls" class="mb-6 hidden">
-          <div class="bg-yellow-50 border border-yellow-300 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-center shadow-sm gap-4">
-            <span class="text-sm text-yellow-800 font-bold">【主催者メニュー】 未回答のゲストがいる場合、強制的に締め切って確定フェーズに進めます。</span>
-            <button onclick="forceClose()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-5 py-2 rounded transition-colors shadow whitespace-nowrap">回答を締め切る</button>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-end mb-4">
-          <h3 class="font-bold text-xl text-gray-700">回答フォーム</h3>
-          <div class="text-sm font-bold text-gray-700 bg-gray-50 px-3 py-1.5 rounded border border-gray-200 shadow-sm">
-            <span class="text-blue-600 font-extrabold">〇</span>:出席 <span class="text-red-600 font-extrabold ml-3">×</span>:欠席 <span class="text-gray-500 font-extrabold ml-3">△</span>:未定
-          </div>
-        </div>
-        <div class="overflow-x-auto rounded-lg border border-gray-300 shadow-sm">
-          <table class="min-w-full border-collapse bg-white text-sm">
-            <thead class="bg-gray-100 border-b-2 border-gray-300" id="ans-table-head"></thead>
-            <tbody id="ans-table-body"></tbody>
-          </table>
-        </div>
-
-        <div id="guest-input-area" class="mt-8 hidden bg-blue-50 p-6 rounded-lg border border-blue-100">
-          <label class="block font-bold mb-2 text-blue-900">コメント (任意)</label>
-          <textarea id="ans-comment" class="w-full border border-blue-200 p-3 rounded focus:bg-white" rows="2" placeholder="連絡事項などがあればご記入ください"></textarea>
-          <div class="mt-6 text-center">
-            <button onclick="submitAnswer()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-12 rounded-full shadow-lg text-lg transition-transform hover:scale-105">決定</button>
-          </div>
-        </div>
-        
-        <div id="closed-message" class="mt-8 text-center text-red-600 font-bold hidden bg-red-50 py-4 rounded-lg border border-red-200">
-          このイベントの回答受付は終了しました。
-        </div>
-      </div>
+    <!-- 登録フォーム -->
+    <div id="form-register" style="display:none;">
+      <h2>アカウント登録 (初回のみ)</h2>
+      <div class="form-group"><label>お名前 (主催者名として表示されます)</label><input type="text" id="reg-name"></div>
+      <div class="form-group"><label>メールアドレス</label><input type="email" id="reg-email"></div>
+      <div class="form-group"><label>パスワード (お好きなものを設定)</label><input type="password" id="reg-password"></div>
+      <button class="btn" onclick="executeRegister()">登録して開始</button>
+      <div id="reg-spinner" class="spinner">登録中...</div>
     </div>
   </div>
 
-  <!-- 各種モーダル -->
-  <div id="modal-invite" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-      <div class="p-5 border-b bg-gray-50 flex justify-between items-center">
-        <h3 class="font-bold text-xl text-gray-800">招待メールの確認・編集</h3>
-        <button onclick="closeModal('modal-invite')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-      </div>
-      <div class="p-6 flex-1 overflow-y-auto">
-        <p class="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded">以下の文面でゲストに招待メールが送信されます。<br>※ <code>{ゲスト名}</code> と <code>{回答用URL}</code> はそのまま残してください。自動的に変換されます。</p>
-        <textarea id="invite-email-body" class="w-full h-72 border border-gray-300 p-4 rounded bg-gray-50 font-mono text-sm leading-relaxed focus:bg-white"></textarea>
-      </div>
-      <div class="p-5 border-t flex justify-end space-x-4 bg-gray-50">
-        <button onclick="closeModal('modal-invite')" class="px-6 py-2 border rounded font-bold text-gray-600 hover:bg-gray-100 transition-colors">キャンセル</button>
-        <button onclick="executeCreateEvent()" class="px-8 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 shadow-md transition-colors">送信して作成</button>
+  <!-- 2. ダッシュボード画面 -->
+  <div id="dashboard-view" class="view-section">
+    <div class="header-flex">
+      <h1 id="dash-title">ダッシュボード</h1>
+      <div>
+        <button class="btn-secondary" onclick="logout()" style="margin-right: 10px;">ログアウト</button>
+        <button class="btn" style="width:auto;" onclick="switchView('create-view')">＋ 新規イベント作成</button>
       </div>
     </div>
+    <div id="event-list-container">読み込み中...</div>
   </div>
 
-  <div id="modal-success" class="fixed inset-0 bg-black bg-opacity-70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col border-4 border-blue-500">
-      <div class="p-8 bg-blue-50 border-b text-center">
-        <div class="text-5xl mb-4">🎉</div>
-        <h3 class="font-bold text-3xl text-blue-800 mb-2">作成完了！</h3>
-        <p class="text-gray-700 font-medium">ゲストへの招待メールの送信が完了しました。</p>
-      </div>
-      <div class="p-8 flex-1 text-center bg-white">
-        <p class="font-bold text-red-600 mb-4 text-lg">【重要】以下の専用URLを必ずコピーしてください。</p>
-        <p class="text-sm text-gray-600 mb-4">このURLは主催者専用です。ここからゲストの回答状況の確認や、日程の確定が行えます。</p>
-        <div class="flex items-center mb-6 shadow-sm rounded">
-          <input type="text" id="organizer-url-input" class="w-full border p-3 rounded-l bg-gray-100 text-sm outline-none text-gray-600" readonly>
-          <button onclick="copyOrganizerUrl()" class="bg-gray-800 text-white px-6 py-3 rounded-r font-bold hover:bg-gray-900 transition-colors">コピー</button>
-        </div>
-        <a id="btn-go-dashboard" href="#" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg w-full transition-transform hover:scale-105">管理画面へ進む</a>
-      </div>
+  <!-- 3. 新規作成画面 -->
+  <div id="create-view" class="view-section">
+    <div class="header-flex">
+      <h1>新規イベント作成</h1>
+      <button class="btn-secondary" onclick="loadDashboard()">戻る</button>
+    </div>
+    <div class="form-group"><label>イベント名</label><input type="text" id="event-name"></div>
+    <div class="form-group"><label>場所</label><input type="text" id="event-location"></div>
+    <div class="form-group"><label>ゲストへのメッセージ</label><textarea id="event-memo" rows="3"></textarea></div>
+    <div class="form-group"><label>回答締切</label><input type="date" id="event-deadline-date"> <input type="time" id="event-deadline-time"></div>
+    
+    <label>日程候補 (最終行の時間を入力すると自動で枠が追加されます)</label>
+    <table id="candidate-table">
+      <thead><tr><th>日付</th><th>時間</th></tr></thead>
+      <tbody id="candidate-body"></tbody>
+    </table>
+    
+    <button class="btn" onclick="executeCreateEvent()">イベントを作成する</button>
+    <div id="create-spinner" class="spinner">作成中...</div>
+  </div>
+
+  <!-- 4. 回答・管理画面 (ゲストはここからスタート) -->
+  <div id="answer-view" class="view-section">
+    <div class="header-flex">
+      <h1 id="ans-title">イベント読込中...</h1>
+      <div class="legend">〇：出席　×：欠席　△：未定</div>
+    </div>
+    <div id="ans-details" style="margin-bottom:20px; background:#f9f9f9; padding:15px; border-radius:4px; border-left:4px solid #3498db;"></div>
+    
+    <h2>日程アンケート</h2>
+    <div id="matrix-container" style="overflow-x:auto;"></div>
+    
+    <div id="guest-form-area" style="margin-top:20px; border-top:2px dashed #ccc; padding-top:20px;">
+      <h3 style="color:#27ae60;">あなたの回答を入力</h3>
+      <div class="form-group"><label>お名前</label><input type="text" id="guest-name"></div>
+      <div class="form-group"><label>メールアドレス (任意)</label><input type="email" id="guest-email"></div>
+      <button class="btn" style="background:#27ae60;" onclick="executeSubmitAnswer()">回答を送信する</button>
+      <div id="ans-spinner" class="spinner">送信中...</div>
     </div>
   </div>
+</div>
 
-  <div id="modal-fixed" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-      <div class="p-5 border-b bg-green-50 flex justify-between items-center">
-        <h3 class="font-bold text-xl text-green-800">日程確定メールの確認・編集</h3>
-        <button onclick="closeModal('modal-fixed')" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-      </div>
-      <div class="p-6 flex-1 overflow-y-auto">
-        <p class="text-sm text-gray-600 mb-4 bg-green-50 p-3 rounded">以下の文面で全ゲストに日程確定のお知らせが送信されます。<br>※ <code>{ゲスト名}</code> と <code>{確定した日時}</code> は自動的に変換されます。</p>
-        <textarea id="fixed-email-body" class="w-full h-72 border border-gray-300 p-4 rounded bg-gray-50 font-mono text-sm leading-relaxed focus:bg-white"></textarea>
-      </div>
-      <div class="p-5 border-t flex justify-end space-x-4 bg-gray-50">
-        <button onclick="closeModal('modal-fixed')" class="px-6 py-2 border rounded font-bold text-gray-600 hover:bg-gray-100 transition-colors">キャンセル</button>
-        <button onclick="executeFixSchedule()" class="px-8 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 shadow-md transition-colors">送信して確定</button>
-      </div>
-    </div>
-  </div>
+<script>
+  // ==========================================
+  // ★重要：ここにあなたのGASのURL（/exec）を貼り付けます
+  // ==========================================
+  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyq0RHopOCeCge1nMALf-VF_Drne71YFc5ZqksSv48cZpaaLSiX2dCyvEP1ZZJT4TVTfQ/exec"; 
+  
+  let currentEventId = null;
+  let currentEventData = null;
+  let loggedInUser = null; // {name, email}
 
-  <script>
-    // ========================================================
-    // ★重要: ここにGASをデプロイして発行されたWebアプリのURLを貼り付けます
-    // ========================================================
-    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyq0RHopOCeCge1nMALf-VF_Drne71YFc5ZqksSv48cZpaaLSiX2dCyvEP1ZZJT4TVTfQ/exec";
+  // --- 画面の表示切り替え ---
+  function switchView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+    document.getElementById(viewId).classList.add('active-view');
+  }
 
-    // アプリの現在のドメイン（自サイトのURL）を取得してベースにします
-    const APP_BASE_URL = window.location.origin + window.location.pathname;
+  function switchAuthTab(tab) {
+    document.getElementById('tab-login').classList.remove('active');
+    document.getElementById('tab-register').classList.remove('active');
+    document.getElementById('form-login').style.display = 'none';
+    document.getElementById('form-register').style.display = 'none';
+    
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('form-' + tab).style.display = 'block';
+  }
 
+  // --- 初期化＆ルーティング（非常に重要） ---
+  window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
-    let SERVER_EVENT_ID = urlParams.get('eventId') || '';
-    let SERVER_GUEST_ID = urlParams.get('guestId') || '';
-    let SERVER_TOKEN = urlParams.get('token') || '';
+    const eventId = urlParams.get('eventId');
+    
+    // 【仕様】URLにeventIdがある（招待メールから来た）場合は、ログイン等すべて無視して回答画面へ直行
+    if (eventId) {
+      currentEventId = eventId;
+      switchView('answer-view');
+      loadEventData(eventId);
+    } else {
+      // 通常アクセス（主催者）の場合はログインチェック
+      checkAuth();
+    }
+    
+    initCandidateRows();
+  };
 
-    const state = { eventData: null, isOrganizer: false, selectedScheduleToFix: null, selectedDateString: '' };
+  // --- API通信用関数 ---
+  async function callApi(action, payload) {
+    const response = await fetch(GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: action, ...payload })
+    });
+    const res = await response.json();
+    if (res.status === "error") throw new Error(res.message);
+    return res.data;
+  }
 
-    window.onload = () => {
-      initCreateForms();
-      setupEnterKeyNavigation();
-      startApp();
+  // --- 認証機能 (ログイン/登録) ---
+  function checkAuth() {
+    // 過去にログインしたセッション（記憶）があれば自動ログイン
+    const session = localStorage.getItem('appSession');
+    if (session) {
+      loggedInUser = JSON.parse(session);
+      loadDashboard();
+      return;
+    }
+    
+    // なければログイン画面を表示し、過去のアドレスがあれば事前に入力しておく
+    switchView('auth-view');
+    const savedEmail = localStorage.getItem('savedEmail');
+    if (savedEmail) {
+      document.getElementById('login-email').value = savedEmail;
+      document.getElementById('login-password').focus(); // パスワードにカーソルを合わせる
+    }
+  }
+
+  async function executeRegister() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    
+    if(!name || !email || !password) { alert("すべての項目を入力してください。"); return; }
+    
+    document.getElementById('reg-spinner').style.display = 'block';
+    try {
+      const user = await callApi("register", { name, email, password });
+      finishLogin(user);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      document.getElementById('reg-spinner').style.display = 'none';
+    }
+  }
+
+  async function executeLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    
+    if(!email || !password) { alert("メールアドレスとパスワードを入力してください。"); return; }
+    
+    document.getElementById('login-spinner').style.display = 'block';
+    try {
+      const user = await callApi("login", { email, password });
+      finishLogin(user);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      document.getElementById('login-spinner').style.display = 'none';
+    }
+  }
+
+  function finishLogin(user) {
+    loggedInUser = user;
+    // ログイン状態を保存
+    localStorage.setItem('appSession', JSON.stringify(user));
+    // 次回オートコンプリート用にアドレスだけ記憶
+    localStorage.setItem('savedEmail', user.email);
+    loadDashboard();
+  }
+
+  function logout() {
+    localStorage.removeItem('appSession');
+    loggedInUser = null;
+    checkAuth();
+  }
+
+  // --- ダッシュボード機能 ---
+  async function loadDashboard() {
+    switchView('dashboard-view');
+    document.getElementById('dash-title').textContent = `${loggedInUser.name} さんのダッシュボード`;
+    const container = document.getElementById('event-list-container');
+    container.innerHTML = "読込中...";
+    
+    try {
+      const events = await callApi("getDashboard", { email: loggedInUser.email });
+      if (events.length === 0) {
+        container.innerHTML = "<p>過去のイベントはありません。新しく作成してください。</p>";
+        return;
+      }
+      
+      let html = "";
+      events.forEach(ev => {
+        const url = window.location.origin + window.location.pathname + "?eventId=" + ev.eventId;
+        html += `
+          <div class="dashboard-item">
+            <div><strong>${ev.eventName}</strong><br><small>締切: ${ev.deadline}</small></div>
+            <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white;">管理 / 回答確認</a>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    } catch (e) {
+      container.innerHTML = "エラーが発生しました: " + e.message;
+    }
+  }
+
+  // --- イベント作成機能 ---
+  function initCandidateRows() {
+    const tbody = document.getElementById('candidate-body');
+    tbody.innerHTML = '';
+    addCandidateRow();
+  }
+
+  function addCandidateRow() {
+    const tbody = document.getElementById('candidate-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="date" class="cand-date"></td>
+      <td><input type="text" class="cand-time" placeholder="1900" maxlength="4"></td>
+    `;
+    tbody.appendChild(tr);
+    setupCandidateListeners(tr);
+  }
+
+  function setupCandidateListeners(row) {
+    const timeInput = row.querySelector('.cand-time');
+    timeInput.addEventListener('blur', function(e) {
+      let val = e.target.value.replace(":", "");
+      if(val.length === 4 && !isNaN(val)) e.target.value = val.substring(0,2) + ":" + val.substring(2,4);
+      checkAndAddRow(row);
+    });
+    timeInput.addEventListener('keydown', function(e) { if(e.key === 'Enter') checkAndAddRow(row); });
+  }
+
+  function checkAndAddRow(currentRow) {
+    const tbody = document.getElementById('candidate-body');
+    if (currentRow.querySelector('.cand-date').value && currentRow.querySelector('.cand-time').value && currentRow === tbody.lastElementChild) {
+      addCandidateRow();
+    }
+  }
+
+  async function executeCreateEvent() {
+    const eventName = document.getElementById('event-name').value;
+    if (!eventName) { alert("イベント名は必須です。"); return; }
+
+    const candidates = [];
+    document.querySelectorAll('#candidate-body tr').forEach(tr => {
+      const d = tr.querySelector('.cand-date').value;
+      const t = tr.querySelector('.cand-time').value;
+      if(d && t) candidates.push({ date: d, time: t });
+    });
+    if(candidates.length === 0) { alert("最低1つの候補日時を入力してください。"); return; }
+
+    document.getElementById('create-spinner').style.display = 'block';
+    
+    const data = {
+      eventName: eventName, location: document.getElementById('event-location').value,
+      memo: document.getElementById('event-memo').value,
+      deadline: document.getElementById('event-deadline-date').value + " " + document.getElementById('event-deadline-time').value,
+      candidates: candidates,
+      organizerName: loggedInUser.name, organizerEmail: loggedInUser.email
     };
 
-    async function callApi(action, payload = {}) {
-      if (GAS_API_URL === "YOUR_GAS_WEB_APP_URL_HERE") {
-        alert("設定エラー: GAS_API_URL が設定されていません。コード内のURLを書き換えてください。");
-        throw new Error("GAS URL Not Set");
-      }
-      payload.action = action;
-      try {
-        const response = await fetch(GAS_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-        });
-        return await response.json();
-      } catch (e) {
-        console.error("API Error:", e);
-        throw e;
-      }
+    try {
+      const res = await callApi("createEvent", { data: data });
+      // 作成成功したら、そのイベントの管理画面へ移動
+      window.location.href = window.location.origin + window.location.pathname + "?eventId=" + res.eventId;
+    } catch(e) {
+      alert("作成エラー: " + e.message);
+      document.getElementById('create-spinner').style.display = 'none';
     }
+  }
 
-    async function startApp() {
-      if (SERVER_EVENT_ID) {
-        try {
-          const res = await callApi('getUserInfoAndEvent', { eventId: SERVER_EVENT_ID });
-          document.getElementById('loading').classList.add('hidden');
-          if (res.eventData) {
-            state.eventData = res.eventData;
-            state.isOrganizer = (SERVER_TOKEN && SERVER_TOKEN === state.eventData.organizerToken);
-            if(state.isOrganizer) {
-              const uInfo = document.getElementById('user-info');
-              uInfo.innerText = "主催者モード";
-              uInfo.classList.remove('hidden');
-            }
-            renderAnswerView();
-            document.getElementById('view-answer').classList.remove('hidden');
-          } else {
-            showToast('イベントが見つかりません', true);
-            document.getElementById('view-create').classList.remove('hidden');
-          }
-        } catch (e) {
-          showToast('通信エラーが発生しました', true);
-          document.getElementById('loading').classList.add('hidden');
-        }
-      } else {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('view-create').classList.remove('hidden');
-      }
-    }
-
-    function checkAndAddRow(target) {
-      if (target.classList.contains('sch-time')) {
-        const tr = target.closest('tr');
-        if (tr && tr === tr.parentElement.lastElementChild) {
-          if (tr.querySelector('.sch-date').value && target.value) addScheduleRow();
-        }
-      }
-      if (target.classList.contains('gst-email')) {
-        const tr = target.closest('tr');
-        if (tr && tr === tr.parentElement.lastElementChild) {
-          if (tr.querySelector('.gst-name').value && target.value) addGuestRow();
-        }
-      }
-    }
-
-    function setupEnterKeyNavigation() {
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          const target = e.target;
-          if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
-            e.preventDefault();
-            checkAndAddRow(target);
-            
-            const focusables = Array.from(document.querySelectorAll('input:not([type="hidden"]), select, textarea, button:not([disabled])'))
-              .filter(el => !el.closest('.hidden') && el.offsetWidth > 0 && el.offsetHeight > 0);
-            
-            const idx = focusables.indexOf(target);
-            if (idx > -1 && idx + 1 < focusables.length) focusables[idx + 1].focus();
-          }
-        }
-      });
-
-      document.addEventListener('focusout', function(e) {
-        checkAndAddRow(e.target);
-      });
-    }
-
-    function initCreateForms() {
-      for(let i=0; i<3; i++) addScheduleRow();
-      for(let i=0; i<3; i++) addGuestRow();
-    }
-
-    function addScheduleRow() {
-      const tbody = document.getElementById('create-schedules-body');
-      const count = tbody.children.length + 1;
-      const tr = document.createElement('tr');
-      tr.className = "border-b border-gray-100 hover:bg-gray-50";
-      tr.innerHTML = `
-        <td class="p-2 text-center text-gray-500 font-bold bg-gray-50 w-24">日程候補${count}</td>
-        <td class="p-2 border-r"><input type="date" max="9999-12-31" class="w-full border rounded p-2 sch-date bg-white focus:ring-2 focus:ring-blue-400"></td>
-        <td class="p-2"><input type="time" class="w-full border rounded p-2 sch-time bg-white focus:ring-2 focus:ring-blue-400"></td>
+  // --- 回答画面 (ゲスト用) ---
+  async function loadEventData(eventId) {
+    try {
+      currentEventData = await callApi("getEvent", { eventId: eventId });
+      
+      document.getElementById('ans-title').textContent = currentEventData.eventName;
+      document.getElementById('ans-details').innerHTML = `
+        <p style="margin:0 0 5px 0;"><strong>場所:</strong> ${currentEventData.location || "未設定"}</p>
+        <p style="margin:0 0 5px 0;"><strong>主催者:</strong> ${currentEventData.organizerName}</p>
+        <p style="margin:0; white-space:pre-wrap;"><strong>メッセージ:</strong><br>${currentEventData.memo || "なし"}</p>
       `;
-      tbody.appendChild(tr);
+      renderMatrix();
+    } catch(e) {
+      document.getElementById('ans-title').textContent = "エラー: イベントが見つかりません";
+      document.getElementById('ans-details').innerHTML = e.message;
     }
+  }
 
-    function addGuestRow() {
-      const tbody = document.getElementById('create-guests-body');
-      const tr = document.createElement('tr');
-      tr.className = "border-b border-gray-100 hover:bg-gray-50";
-      tr.innerHTML = `
-        <td class="p-2 border-r"><input type="text" class="w-full border rounded p-2 gst-name bg-white focus:ring-2 focus:ring-blue-400" placeholder="氏名"></td>
-        <td class="p-2"><input type="email" class="w-full border rounded p-2 gst-email bg-white focus:ring-2 focus:ring-blue-400" placeholder="メールアドレス"></td>
-      `;
-      tbody.appendChild(tr);
-    }
-
-    function showToast(message, isError = false) {
-      const toast = document.getElementById('toast');
-      const msg = document.getElementById('toast-msg');
-      msg.innerText = message;
-      msg.className = `px-5 py-4 rounded shadow-2xl font-bold text-white ${isError ? 'bg-red-600' : 'bg-gray-800'}`;
-      toast.classList.remove('hidden');
-      setTimeout(() => { toast.classList.add('hidden'); }, 4000);
-    }
-
-    function showLoading(show) { document.getElementById('loading').classList.toggle('hidden', !show); }
-    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-    function collectEventData() {
-      const eventName = document.getElementById('create-event-name').value.trim();
-      const message = document.getElementById('create-message').value.trim();
-      const dlDate = document.getElementById('create-deadline-date').value;
-      const dlTime = document.getElementById('create-deadline-time').value;
-      
-      if (!eventName || !dlDate || !dlTime) { showToast('イベント名と回答締切日時は必須です', true); return null; }
-      
-      const schedules = [];
-      document.querySelectorAll('#create-schedules-body tr').forEach(tr => {
-        const d = tr.querySelector('.sch-date').value;
-        const t = tr.querySelector('.sch-time').value;
-        if (d && t) schedules.push({ date: d, time: t });
+  function renderMatrix() {
+    let html = `<table><thead><tr><th>ゲスト名</th>`;
+    currentEventData.candidates.forEach(cand => { html += `<th>${cand.date}<br>${cand.time}</th>`; });
+    html += `</tr></thead><tbody>`;
+    
+    // 他のゲストの回答
+    currentEventData.answers.forEach(ans => {
+      html += `<tr><td style="font-weight:bold;">${ans.guestName}</td>`;
+      currentEventData.candidates.forEach((cand, index) => {
+        const mark = ans.answersMap[index] || "△";
+        const color = mark === '〇' ? 'color:#3498db; font-weight:bold;' : (mark === '×' ? 'color:#e74c3c;' : 'color:#999;');
+        html += `<td style="${color}">${mark}</td>`;
       });
-      if (schedules.length === 0) { showToast('日程候補を最低1つ入力してください', true); return null; }
-      
-      const guests = [];
-      document.querySelectorAll('#create-guests-body tr').forEach(tr => {
-        const n = tr.querySelector('.gst-name').value.trim();
-        const e = tr.querySelector('.gst-email').value.trim();
-        if (n && e) guests.push({ name: n, email: e });
+      html += `</tr>`;
+    });
+    
+    // あなたの入力行
+    html += `<tr style="background:#f1f8ff;"><td><span style="color:#555; font-size:0.9em;">(あなたの回答)</span></td>`;
+    currentEventData.candidates.forEach((cand, index) => {
+      html += `<td>
+        <select id="ans-select-${index}" style="padding:5px; width:100%; border-radius:4px; border:1px solid #ccc; outline:none;">
+          <option value="〇">〇</option>
+          <option value="△" selected>△</option>
+          <option value="×">×</option>
+        </select>
+      </td>`;
+    });
+    html += `</tr></tbody></table>`;
+    
+    document.getElementById('matrix-container').innerHTML = html;
+  }
+
+  async function executeSubmitAnswer() {
+    const name = document.getElementById('guest-name').value.trim();
+    if(!name) { alert("お名前は必須です。"); return; }
+    
+    let answersMap = {};
+    currentEventData.candidates.forEach((cand, index) => {
+      answersMap[index] = document.getElementById(`ans-select-${index}`).value;
+    });
+
+    document.getElementById('ans-spinner').style.display = 'block';
+
+    try {
+      await callApi("submitAnswer", {
+        data: { eventId: currentEventId, guestName: name, guestEmail: document.getElementById('guest-email').value, answersMap: answersMap }
       });
-      if (guests.length === 0) { showToast('ゲストを最低1名入力してください', true); return null; }
-
-      return { eventName, message, deadline: formatDate(dlDate) + ' ' + dlTime, schedules, guests };
+      alert("回答を送信しました！");
+      window.location.reload();
+    } catch(e) {
+      alert("送信エラー: " + e.message);
+      document.getElementById('ans-spinner').style.display = 'none';
     }
-
-    function openInviteEmailModal() {
-      const data = collectEventData();
-      if (!data) return;
-      
-      // メッセージが入力されていればメール文面にも差し込む
-      const msgText = data.message ? `\n【主催者からのメッセージ】\n${data.message}\n` : '';
-
-      // {回答用URL} はGAS側で本物のURLに置換されるマジックワードとしてそのまま残します
-      const defaultBody = 
-`{ゲスト名} 様\n\n「${data.eventName}」の日程調整についてご案内いたします。${msgText}
-以下の専用URLよりご都合をお知らせください。\n
-■ 回答締切期限: ${data.deadline}\n
-▼ 回答専用ページはこちら
-{回答用URL}`;
-      
-      document.getElementById('invite-email-body').value = defaultBody;
-      document.getElementById('modal-invite').classList.remove('hidden');
-    }
-
-    async function executeCreateEvent() {
-      const data = collectEventData();
-      if (!data) return;
-      const emailBody = document.getElementById('invite-email-body').value;
-
-      closeModal('modal-invite');
-      showLoading(true);
-
-      try {
-        const res = await callApi('createEventAndSendEmails', { data, emailBody, baseUrl: APP_BASE_URL });
-        showLoading(false);
-        if (res.success) {
-          const myOrganizerUrl = `${APP_BASE_URL}?eventId=${res.eventId}&token=${res.organizerToken}`;
-          document.getElementById('organizer-url-input').value = myOrganizerUrl;
-          document.getElementById('btn-go-dashboard').href = myOrganizerUrl;
-          document.getElementById('modal-success').classList.remove('hidden');
-        } else {
-          showToast('エラー: ' + res.error, true);
-        }
-      } catch(e) {
-        showLoading(false); showToast('通信エラーが発生しました', true);
-      }
-    }
-
-    function copyOrganizerUrl() {
-      const copyText = document.getElementById("organizer-url-input");
-      copyText.select();
-      document.execCommand("copy");
-      showToast("URLをコピーしました！");
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return '';
-      const parts = dateStr.split('-');
-      if (parts.length === 3) return `${parseInt(parts[0], 10)}/${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
-      return dateStr.replace(/-/g, '/');
-    }
-
-    function renderAnswerView() {
-      const ev = state.eventData;
-      document.getElementById('ans-event-name').innerText = ev.eventName;
-      document.getElementById('ans-message').innerText = ev.message;
-      document.getElementById('ans-deadline').innerText = formatDate(ev.deadline.split(' ')[0]) + ' ' + (ev.deadline.split(' ')[1] || '');
-
-      const isClosed = ev.status === 'closed';
-      const isEvaluating = ev.status === 'evaluating';
-      const allAnswered = ev.guests.every(g => g.hasAnswered);
-
-      if (state.isOrganizer && !isClosed && !isEvaluating && !allAnswered) {
-        document.getElementById('organizer-controls').classList.remove('hidden');
-      } else {
-        document.getElementById('organizer-controls').classList.add('hidden');
-      }
-
-      if (SERVER_GUEST_ID && !isClosed) {
-        document.getElementById('guest-input-area').classList.remove('hidden');
-        const myPrevAns = ev.answers.find(a => a.guestId === SERVER_GUEST_ID);
-        if (myPrevAns && myPrevAns.comment) document.getElementById('ans-comment').value = myPrevAns.comment;
-      }
-      if (isClosed) {
-        document.getElementById('guest-input-area').classList.add('hidden');
-        document.getElementById('closed-message').classList.remove('hidden');
-      }
-      buildMatrix(ev, isClosed, isEvaluating || allAnswered);
-    }
-
-    function buildMatrix(ev, isClosed, isReadyToFix) {
-      const thead = document.getElementById('ans-table-head');
-      const tbody = document.getElementById('ans-table-body');
-      thead.innerHTML = ''; tbody.innerHTML = '';
-
-      let headRow = '<tr><th class="border p-3 min-w-[100px] text-left">日付</th><th class="border p-3 min-w-[80px] text-left">時間</th>';
-      ev.guests.forEach(g => { headRow += `<th class="border p-2 break-all text-center max-w-[100px] text-sm">${g.guestName}</th>`; });
-      headRow += '<th class="border p-2 w-12 text-blue-600">〇</th><th class="border p-2 w-12 text-red-600">×</th><th class="border p-2 w-12 text-gray-600">△</th>';
-      if (state.isOrganizer && isReadyToFix && !isClosed) headRow += '<th class="border p-2 w-24">操作</th>';
-      headRow += '</tr>';
-      thead.innerHTML = headRow;
-
-      let scheduleStats = [];
-      ev.schedules.forEach(sch => {
-        let o = 0, x = 0, t = 0;
-        ev.guests.forEach(g => {
-          const ans = ev.answers.find(a => a.guestId === g.guestId && a.scheduleId === sch.scheduleId);
-          if (ans) { if(ans.attendance === '〇') o++; if(ans.attendance === '×') x++; if(ans.attendance === '△') t++; }
-        });
-        scheduleStats.push({ scheduleId: sch.scheduleId, o, x, t });
-      });
-
-      let maxO = -1; let minX = 9999; let bestIds = [];
-      if (isReadyToFix || isClosed) {
-        scheduleStats.forEach(s => {
-          if (s.o > maxO) { maxO = s.o; minX = s.x; bestIds = [s.scheduleId]; }
-          else if (s.o === maxO && s.o > 0) {
-            if (s.x < minX) { minX = s.x; bestIds = [s.scheduleId]; }
-            else if (s.x === minX) { bestIds.push(s.scheduleId); }
-          }
-        });
-      }
-
-      ev.schedules.forEach(sch => {
-        const stat = scheduleStats.find(s => s.scheduleId === sch.scheduleId);
-        const isBest = bestIds.includes(sch.scheduleId);
-        const isFixedRow = (ev.fixedScheduleId === sch.scheduleId);
-        let rowClass = isFixedRow ? 'bg-green-100 font-bold border-2 border-green-500' : (isBest && !isClosed ? 'best-schedule' : '');
-        
-        let rowHtml = `<tr class="${rowClass} hover:bg-gray-50 transition-colors border-b">
-          <td class="border p-3 font-medium text-gray-800">${formatDate(sch.date)}</td>
-          <td class="border p-3 text-gray-800">${sch.time}</td>`;
-        
-        ev.guests.forEach(g => {
-          const ans = ev.answers.find(a => a.guestId === g.guestId && a.scheduleId === sch.scheduleId);
-          const val = ans ? ans.attendance : '';
-          if (g.guestId === SERVER_GUEST_ID && !isClosed) {
-            rowHtml += `<td class="border p-1 text-center bg-blue-50">
-              <select class="w-full border-0 rounded p-2 text-center outline-none bg-transparent ans-select font-bold text-gray-700 cursor-pointer focus:ring-2 focus:ring-blue-400" data-sch="${sch.scheduleId}" required>
-                <option value="" disabled ${val===''?'selected':''}>-</option>
-                <option value="〇" ${val==='〇'?'selected':''}>〇</option>
-                <option value="×" ${val==='×'?'selected':''}>×</option>
-                <option value="△" ${val==='△'?'selected':''}>△</option>
-              </select></td>`;
-          } else {
-            let color = val==='〇' ? 'text-blue-600 font-bold' : (val==='×' ? 'text-red-600' : '');
-            rowHtml += `<td class="border p-3 text-center text-lg ${color}">${val}</td>`;
-          }
-        });
-
-        rowHtml += `<td class="border p-3 text-center font-bold text-blue-600 bg-gray-50">${stat.o}</td>
-                    <td class="border p-3 text-center font-bold text-red-600 bg-gray-50">${stat.x}</td>
-                    <td class="border p-3 text-center text-gray-600 bg-gray-50">${stat.t}</td>`;
-
-        if (state.isOrganizer && isReadyToFix && !isClosed) {
-          if (isBest) {
-            rowHtml += `<td class="border p-2 text-center"><button onclick="openFixModal('${sch.scheduleId}', '${formatDate(sch.date)} ${sch.time}')" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-full shadow-sm transition-transform hover:scale-105">確定</button></td>`;
-          } else rowHtml += `<td class="border p-2 bg-gray-50"></td>`;
-        }
-        rowHtml += '</tr>';
-        tbody.innerHTML += rowHtml;
-      });
-    }
-
-    async function submitAnswer() {
-      const selects = document.querySelectorAll('.ans-select');
-      const answers = [];
-      let hasEmpty = false;
-      selects.forEach(sel => { 
-        if (!sel.value) hasEmpty = true;
-        answers.push({ scheduleId: sel.getAttribute('data-sch'), attendance: sel.value }); 
-      });
-      if (hasEmpty) { showToast('エラー：すべての日程に対して回答を選択してください。', true); return; }
-      
-      const comment = document.getElementById('ans-comment').value.trim();
-      showLoading(true);
-      try {
-        const res = await callApi('saveGuestAnswer', { eventId: SERVER_EVENT_ID, guestId: SERVER_GUEST_ID, answers, comment });
-        if (res.success) { showToast('回答を保存しました！'); refreshData(); }
-        else { showLoading(false); showToast('エラー: ' + res.error, true); }
-      } catch(e) { showLoading(false); showToast('通信エラー', true); }
-    }
-
-    async function refreshData() {
-      try {
-        const res = await callApi('getUserInfoAndEvent', { eventId: SERVER_EVENT_ID });
-        showLoading(false);
-        if (res.eventData) { state.eventData = res.eventData; renderAnswerView(); }
-      } catch(e) { showLoading(false); }
-    }
-
-    async function forceClose() {
-      if (!confirm('まだ回答していないゲストがいますが、締め切って確定フェーズに進みますか？')) return;
-      showLoading(true);
-      try {
-        const res = await callApi('forceCloseEvent', { eventId: SERVER_EVENT_ID });
-        if(res.success) refreshData();
-      } catch(e) { showLoading(false); }
-    }
-
-    function openFixModal(scheduleId, dateString) {
-      state.selectedScheduleToFix = scheduleId;
-      state.selectedDateString = dateString;
-      const defaultBody = `{ゲスト名} 様\n\n「${state.eventData.eventName}」の開催日時が確定いたしました。\n\n■ 開催日時\n${dateString}\n\n当日はよろしくお願いいたします。`;
-      document.getElementById('fixed-email-body').value = defaultBody;
-      document.getElementById('modal-fixed').classList.remove('hidden');
-    }
-
-    async function executeFixSchedule() {
-      const body = document.getElementById('fixed-email-body').value;
-      closeModal('modal-fixed');
-      showLoading(true);
-      try {
-        const res = await callApi('fixScheduleAndNotify', { eventId: SERVER_EVENT_ID, scheduleId: state.selectedScheduleToFix, emailBody: body, dateString: state.selectedDateString });
-        if (res.success) { showToast('日程を確定し、メールを送信しました！'); refreshData(); }
-        else { showLoading(false); showToast('エラー: ' + res.error, true); }
-      } catch(e) { showLoading(false); }
-    }
-  </script>
+  }
+</script>
 </body>
 </html>
