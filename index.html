@@ -12,7 +12,7 @@
     .legend { font-size: 0.9em; color: #555; background: #f8f9fa; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; }
     .form-group { margin-bottom: 20px; }
     label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
-    input[type="text"], input[type="email"], input[type="date"], input[type="time"], input[type="password"], textarea, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+    input[type="text"], input[type="email"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
     .btn { background: #3498db; color: #fff; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; width: 100%; }
     .btn:hover { background: #2980b9; }
     .btn-secondary { background: #95a5a6; width: auto; padding: 8px 15px; font-size: 14px; }
@@ -29,16 +29,18 @@
     .auth-tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
     .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; color: #777; transition: 0.3s; }
     .auth-tab.active { color: #3498db; border-bottom: 3px solid #3498db; margin-bottom: -2px; }
-    .admin-panel { background: #f0f8ff; border: 2px solid #bce8f1; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
     
-    /* モーダル用のスタイル */
+    /* カレンダーピッカー付き入力欄のスタイル */
+    .date-widget { display:inline-flex; align-items:center; border:1px solid #ccc; border-radius:4px; padding:2px; background:#fff; }
+    .date-widget input { border:none; padding:5px; text-align:center; outline:none; }
+    .date-widget input:focus { background: #f0f8ff; }
+
     #msg-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; }
     .modal-content { background: #fff; padding: 30px; border-radius: 8px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
 
-<!-- システム標準のalert()を置き換えるカスタムメッセージ表示 -->
 <div id="msg-modal">
   <div class="modal-content">
     <p id="msg-text" style="margin-bottom: 25px; font-weight: bold; color: #333; line-height: 1.5;"></p>
@@ -54,23 +56,18 @@
       <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">ログイン</div>
       <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">初回アカウント登録</div>
     </div>
-
-    <!-- ログインフォーム -->
     <div id="form-login">
       <h2>ログイン</h2>
-      <p style="font-size: 0.9em; color: #666;">2回目以降はパスワードを入力するだけでダッシュボードに入れます。</p>
       <div class="form-group"><label>メールアドレス</label><input type="email" id="login-email"></div>
       <div class="form-group"><label>パスワード</label><input type="password" id="login-password"></div>
       <button class="btn" onclick="executeLogin()">ログイン</button>
       <div id="login-spinner" class="spinner">認証中...</div>
     </div>
-
-    <!-- 登録フォーム -->
     <div id="form-register" style="display:none;">
-      <h2>アカウント登録 (初回のみ)</h2>
+      <h2>アカウント登録</h2>
       <div class="form-group"><label>お名前 (主催者名として表示されます)</label><input type="text" id="reg-name"></div>
       <div class="form-group"><label>メールアドレス</label><input type="email" id="reg-email"></div>
-      <div class="form-group"><label>パスワード (お好きなものを設定)</label><input type="password" id="reg-password"></div>
+      <div class="form-group"><label>パスワード</label><input type="password" id="reg-password"></div>
       <button class="btn" onclick="executeRegister()">登録して開始</button>
       <div id="reg-spinner" class="spinner">登録中...</div>
     </div>
@@ -82,80 +79,90 @@
       <h1 id="dash-title">ダッシュボード</h1>
       <div>
         <button class="btn-secondary" onclick="logout()" style="margin-right: 10px;">ログアウト</button>
-        <button class="btn" style="width:auto;" onclick="switchView('create-view')">＋ 新規イベント作成</button>
+        <button class="btn" style="width:auto;" onclick="openCreateMode()">＋ 新規イベント作成</button>
       </div>
     </div>
     <div id="event-list-container">読み込み中...</div>
   </div>
 
-  <!-- 3. 新規作成画面 -->
+  <!-- 3. 新規作成・編集画面 -->
   <div id="create-view" class="view-section">
     <div class="header-flex">
-      <h1>新規イベント作成</h1>
+      <h1 id="create-title">新規イベント作成</h1>
       <button class="btn-secondary" onclick="loadDashboard()">戻る</button>
     </div>
     <div class="form-group"><label>イベント名</label><input type="text" id="event-name"></div>
     <div class="form-group"><label>場所</label><input type="text" id="event-location"></div>
     <div class="form-group"><label>ゲストへのメッセージ</label><textarea id="event-memo" rows="3"></textarea></div>
-    <div class="form-group"><label>回答締切</label><input type="date" id="event-deadline-date"> <input type="time" id="event-deadline-time"></div>
     
-    <label>日程候補 (最終行の時間を入力すると自動で枠が追加されます)</label>
+    <label>招待予定のゲスト (最終行でEnterを押すと自動追加)</label>
+    <table id="guest-table">
+      <thead><tr><th>氏名</th><th>メールアドレス</th></tr></thead>
+      <tbody id="guest-body"></tbody>
+    </table>
+
+    <label>日程候補 (最終行でEnterを押すと自動追加)</label>
     <table id="candidate-table">
-      <thead><tr><th>日付</th><th>時間</th></tr></thead>
+      <thead><tr><th>日付 (カレンダー選択可)</th><th>時間</th></tr></thead>
       <tbody id="candidate-body"></tbody>
     </table>
     
-    <button class="btn" onclick="executeCreateEvent()">イベントを作成する</button>
-    <div id="create-spinner" class="spinner">作成中...</div>
-  </div>
-
-  <!-- 4. 回答・管理画面 (ゲストはここからスタート) -->
-  <div id="answer-view" class="view-section">
-    <div class="header-flex">
-      <h1 id="ans-title">イベント読込中...</h1>
-      <div class="legend">〇：出席　×：欠席　△：未定</div>
-    </div>
-    
-    <!-- 主催者用：管理パネル (認証時のみ表示) -->
-    <div id="admin-panel" class="admin-panel" style="display:none;">
-      <h2 style="margin-top:0; color:#31708f;">👑 主催者管理メニュー</h2>
-      
-      <div style="display:flex; flex-wrap:wrap; gap:20px;">
-        <!-- 招待エリア -->
-        <div style="flex:1; min-width:300px; background:#fff; padding:15px; border-radius:4px;">
-          <h3 style="margin-top:0; color:#3498db;">1. 招待メールを送る</h3>
-          <div class="form-group"><label>ゲストのメールアドレス（改行で複数可）</label><textarea id="invite-emails" rows="2" placeholder="guest1@example.com&#10;guest2@example.com"></textarea></div>
-          <div class="form-group"><label>追加メッセージ</label><textarea id="invite-message" rows="2"></textarea></div>
-          <button class="btn" onclick="executeSendInvites()">招待を送信</button>
-          <div id="invite-spinner" class="spinner">送信中...</div>
-        </div>
-        
-        <!-- 確定エリア -->
-        <div style="flex:1; min-width:300px; background:#fff; padding:15px; border-radius:4px;">
-          <h3 style="margin-top:0; color:#e67e22;">2. 日程を確定する</h3>
-          <div class="form-group"><label>確定日時</label><select id="finalize-date"></select></div>
-          <div class="form-group"><label>確定メッセージ</label><textarea id="finalize-message" rows="2"></textarea></div>
-          <button class="btn" style="background:#e67e22;" onclick="executeFinalize()">確定を通知</button>
-          <div id="finalize-spinner" class="spinner">送信中...</div>
-        </div>
+    <div class="form-group" style="margin-top: 30px;">
+      <label>回答締切</label>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="date-widget" id="dl-date-widget">
+          <input type="text" id="dl-year" class="cand-year" placeholder="YYYY" maxlength="4" style="width:60px;">/
+          <input type="text" id="dl-month" class="cand-month" placeholder="MM" maxlength="2" style="width:40px;">/
+          <input type="text" id="dl-day" class="cand-day" placeholder="DD" maxlength="2" style="width:40px;">
+          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)">
+        </span>
+        <input type="text" id="dl-time" class="cand-time" placeholder="1900" maxlength="4" style="width:100px; padding:7px; border:1px solid #ccc; border-radius:4px; text-align:center;">
       </div>
     </div>
 
-    <div id="ans-details" style="margin-bottom:20px; background:#f9f9f9; padding:15px; border-radius:4px; border-left:4px solid #3498db;"></div>
-    
-    <h2>日程アンケート</h2>
-    <div id="matrix-container" style="overflow-x:auto;"></div>
-    
-    <div id="guest-form-area" style="margin-top:20px; border-top:2px dashed #ccc; padding-top:20px;">
-      <h3 style="color:#27ae60;">あなたの回答を入力</h3>
-      <div class="form-group"><label>お名前</label><input type="text" id="guest-name"></div>
-      <div class="form-group"><label>メールアドレス (任意)</label><input type="email" id="guest-email"></div>
-      <button class="btn btn-success" onclick="executeSubmitAnswer()">回答を送信する</button>
-      <div id="ans-spinner" class="spinner">送信中...</div>
+    <button id="create-btn" class="btn" onclick="executeCreateEvent()">イベントを作成する</button>
+    <div id="create-spinner" class="spinner">処理中...</div>
+  </div>
+
+  <!-- 4. 回答・管理画面 -->
+  <div id="answer-view" class="view-section">
+    <div class="header-flex">
+      <h1 id="ans-title">イベント読込中...</h1>
+      <div>
+        <button id="admin-edit-btn" class="btn-secondary" style="display:none; margin-right:10px;" onclick="openEditMode()">✎ イベント情報を修正</button>
+        <button class="btn" style="width:auto;" onclick="openCreateMode()">＋ 新規イベント作成</button>
+      </div>
     </div>
     
-    <div style="text-align:right; margin-top:30px;">
-      <a href="#" onclick="switchView('auth-view')" style="color:#999; font-size:0.8em; text-decoration:underline;">主催者ログイン</a>
+    <div id="ans-details" style="margin-bottom:20px; background:#f9f9f9; padding:15px; border-radius:4px; border-left:4px solid #3498db;"></div>
+    
+    <div class="header-flex" style="border:none; padding:0; margin:0;">
+      <h2>日程アンケート</h2>
+      <div class="legend">〇：出席　×：欠席　△：未定</div>
+    </div>
+    <div id="matrix-container" style="overflow-x:auto;"></div>
+    
+    <div id="guest-submit-area" style="display:none; margin-top:20px; text-align:center; padding-top:20px; border-top:2px dashed #ccc;">
+      <button class="btn btn-success" style="width:auto; padding:15px 40px; font-size:18px;" onclick="executeSubmitAnswer()">自分の回答を保存する</button>
+      <div id="ans-spinner" class="spinner">保存中...</div>
+    </div>
+    
+    <!-- 主催者用：確定・送信パネル -->
+    <div id="admin-action-panel" style="display:none; margin-top:30px; background:#f0f8ff; padding:20px; border-radius:8px; border:2px solid #bce8f1;">
+      <h3 style="margin-top:0; color:#31708f;">👑 確定と案内メールの送信</h3>
+      <div class="form-group">
+        <label>確定時メッセージ</label>
+        <textarea id="finalize-message" rows="2" placeholder="確定時のみゲストに送信されます"></textarea>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" onclick="executeSendInvites()">招待メールを送信</button>
+        <button class="btn btn-success" onclick="executeFinalize()">確定メールを送信</button>
+      </div>
+      <div id="admin-spinner" class="spinner">送信中...</div>
+    </div>
+
+    <div style="text-align:center; margin-top:40px;">
+      <button class="btn-secondary" onclick="loadDashboard()">HOME (ダッシュボードへ戻る)</button>
     </div>
   </div>
 </div>
@@ -164,22 +171,21 @@
   // ==========================================
   // ★重要：ここにあなたのGASのURL（/exec）を貼り付けます
   // ==========================================
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyq0RHopOCeCge1nMALf-VF_Drne71YFc5ZqksSv48cZpaaLSiX2dCyvEP1ZZJT4TVTfQ/exec"; 
+  const GAS_API_URL = "YOUR_GAS_WEB_APP_URL_HERE"; 
   
   let currentEventId = null;
+  let currentGuestId = null;
   let currentEventData = null;
   let loggedInUser = null; 
+  let isEditMode = false;
+  let finalDateSelected = "";
 
-  // カスタムメッセージ表示（alertの代わり）
   function showMessage(text) {
     document.getElementById('msg-text').innerHTML = text.replace(/\n/g, '<br>');
     document.getElementById('msg-modal').style.display = 'flex';
   }
-  function closeMessage() {
-    document.getElementById('msg-modal').style.display = 'none';
-  }
+  function closeMessage() { document.getElementById('msg-modal').style.display = 'none'; }
 
-  // 画面の表示切り替え
   function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
     document.getElementById(viewId).classList.add('active-view');
@@ -190,7 +196,6 @@
     document.getElementById('tab-register').classList.remove('active');
     document.getElementById('form-login').style.display = 'none';
     document.getElementById('form-register').style.display = 'none';
-    
     document.getElementById('tab-' + tab).classList.add('active');
     document.getElementById('form-' + tab).style.display = 'block';
   }
@@ -198,20 +203,18 @@
   window.onload = function() {
     const urlParams = new URLSearchParams(window.location.search);
     const eventId = urlParams.get('eventId');
+    currentGuestId = urlParams.get('guestId');
     
     const session = localStorage.getItem('appSession');
     if (session) loggedInUser = JSON.parse(session);
 
     if (eventId) {
-      // URLにIDがある場合はすべてをスキップして回答画面へ
       currentEventId = eventId;
       switchView('answer-view');
       loadEventData(eventId);
     } else {
       checkAuth();
     }
-    
-    initCandidateRows();
   };
 
   async function callApi(action, payload) {
@@ -226,10 +229,7 @@
   }
 
   function checkAuth() {
-    if (loggedInUser) {
-      loadDashboard();
-      return;
-    }
+    if (loggedInUser) { loadDashboard(); return; }
     switchView('auth-view');
     const savedEmail = localStorage.getItem('savedEmail');
     if (savedEmail) {
@@ -242,56 +242,41 @@
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
-    
     if(!name || !email || !password) { showMessage("すべての項目を入力してください。"); return; }
     
     document.getElementById('reg-spinner').style.display = 'block';
     try {
-      const user = await callApi("register", { name, email, password });
+      const user = await callApi("registerUser", { name, email, password });
       finishLogin(user);
-    } catch (e) {
-      showMessage(e.message);
-    } finally {
-      document.getElementById('reg-spinner').style.display = 'none';
-    }
+    } catch (e) { showMessage(e.message); } 
+    finally { document.getElementById('reg-spinner').style.display = 'none'; }
   }
 
   async function executeLogin() {
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
-    
-    if(!email || !password) { showMessage("メールアドレスとパスワードを入力してください。"); return; }
+    if(!email || !password) { showMessage("入力してください。"); return; }
     
     document.getElementById('login-spinner').style.display = 'block';
     try {
-      const user = await callApi("login", { email, password });
+      const user = await callApi("loginUser", { email, password });
       finishLogin(user);
-    } catch (e) {
-      showMessage(e.message);
-    } finally {
-      document.getElementById('login-spinner').style.display = 'none';
-    }
+    } catch (e) { showMessage(e.message); } 
+    finally { document.getElementById('login-spinner').style.display = 'none'; }
   }
 
   function finishLogin(user) {
     loggedInUser = user;
     localStorage.setItem('appSession', JSON.stringify(user));
     localStorage.setItem('savedEmail', user.email);
-    
-    // イベント表示中（管理画面からログイン）の場合はダッシュボードに飛ばさずパネルを表示
-    if (currentEventId) {
-      switchView('answer-view');
-      renderAdminPanel();
-    } else {
-      loadDashboard();
-    }
+    if (currentEventId) { switchView('answer-view'); renderAdminPanel(); } 
+    else { loadDashboard(); }
   }
 
   function logout() {
     localStorage.removeItem('appSession');
     loggedInUser = null;
-    currentEventId = null;
-    window.location.href = window.location.origin + window.location.pathname; // トップへ戻る
+    window.location.href = window.location.origin + window.location.pathname;
   }
 
   async function loadDashboard() {
@@ -299,228 +284,316 @@
     document.getElementById('dash-title').textContent = `${loggedInUser.name} さんのダッシュボード`;
     const container = document.getElementById('event-list-container');
     container.innerHTML = "読込中...";
-    
     try {
       const events = await callApi("getDashboard", { email: loggedInUser.email });
-      if (events.length === 0) {
-        container.innerHTML = "<p>過去のイベントはありません。新しく作成してください。</p>";
-        return;
-      }
-      
+      if (events.length === 0) { container.innerHTML = "<p>イベントはありません。</p>"; return; }
       let html = "";
       events.forEach(ev => {
         const url = window.location.origin + window.location.pathname + "?eventId=" + ev.eventId;
-        html += `
-          <div class="dashboard-item">
+        html += `<div class="dashboard-item">
             <div><strong>${ev.eventName}</strong><br><small>締切: ${ev.deadline}</small></div>
-            <div>
-              <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white; display:inline-block; margin-right:5px;">管理・回答確認</a>
-              <button class="btn-secondary" style="background:#f39c12; border:none;" onclick="navigator.clipboard.writeText('${url}'); showMessage('URLをコピーしました');">URLコピー</button>
-            </div>
-          </div>
-        `;
+            <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white;">管理画面</a>
+          </div>`;
       });
       container.innerHTML = html;
-    } catch (e) {
-      container.innerHTML = "エラーが発生しました: " + e.message;
+    } catch (e) { container.innerHTML = e.message; }
+  }
+
+  function openCreateMode() {
+    isEditMode = false;
+    document.getElementById('create-title').textContent = "新規イベント作成";
+    document.getElementById('create-btn').textContent = "イベントを作成する";
+    document.getElementById('event-name').value = "";
+    document.getElementById('event-location').value = "";
+    document.getElementById('event-memo').value = "";
+    document.getElementById('dl-year').value = "";
+    document.getElementById('dl-month').value = "";
+    document.getElementById('dl-day').value = "";
+    document.getElementById('dl-time').value = "";
+    
+    document.getElementById('guest-body').innerHTML = '';
+    for(let i=0; i<3; i++) addGuestRow();
+    
+    document.getElementById('candidate-body').innerHTML = '';
+    for(let i=0; i<3; i++) addCandidateRow();
+    
+    setupDateInputs(document.getElementById('dl-date-widget').parentElement, false);
+    switchView('create-view');
+  }
+
+  function openEditMode() {
+    isEditMode = true;
+    document.getElementById('create-title').textContent = "イベント情報の修正";
+    document.getElementById('create-btn').textContent = "変更を保存する";
+    document.getElementById('event-name').value = currentEventData.eventName;
+    document.getElementById('event-location').value = currentEventData.location;
+    document.getElementById('event-memo').value = currentEventData.memo;
+
+    const dlParts = currentEventData.deadline.split(' ');
+    const dlDate = dlParts[0] ? dlParts[0].split('/') : ['', '', ''];
+    document.getElementById('dl-year').value = dlDate[0] || '';
+    document.getElementById('dl-month').value = dlDate[1] || '';
+    document.getElementById('dl-day').value = dlDate[2] || '';
+    document.getElementById('dl-time').value = dlParts[1] || '';
+
+    document.getElementById('guest-body').innerHTML = '';
+    if(currentEventData.guests && currentEventData.guests.length > 0) {
+      currentEventData.guests.forEach(g => addGuestRow(g.name, g.email, g.id));
+    }
+    addGuestRow();
+
+    document.getElementById('candidate-body').innerHTML = '';
+    currentEventData.candidates.forEach(c => {
+      const d = c.date.split('-');
+      addCandidateRow(d[0], d[1], d[2], c.time);
+    });
+    addCandidateRow();
+
+    setupDateInputs(document.getElementById('dl-date-widget').parentElement, false);
+    switchView('create-view');
+  }
+
+  function addGuestRow(name = "", email = "", id = "") {
+    const tbody = document.getElementById('guest-body');
+    const tr = document.createElement('tr');
+    tr.dataset.guestId = id; // IDを保持
+    tr.innerHTML = `
+      <td><input type="text" class="guest-name" placeholder="氏名" value="${name}"></td>
+      <td><input type="email" class="guest-email" placeholder="メールアドレス" value="${email}"></td>
+    `;
+    tbody.appendChild(tr);
+
+    const nInput = tr.querySelector('.guest-name');
+    const eInput = tr.querySelector('.guest-email');
+
+    nInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') { e.preventDefault(); eInput.focus(); } });
+    eInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') {
+        e.preventDefault();
+        const nextRow = tr.nextElementSibling;
+        if(nextRow) nextRow.querySelector('.guest-name').focus();
+      }
+    });
+
+    nInput.addEventListener('input', checkAndAddGuestRow);
+    eInput.addEventListener('input', checkAndAddGuestRow);
+  }
+
+  function checkAndAddGuestRow() {
+    const tbody = document.getElementById('guest-body');
+    const lastRow = tbody.lastElementChild;
+    if (lastRow.querySelector('.guest-name').value || lastRow.querySelector('.guest-email').value) {
+      addGuestRow();
     }
   }
 
-  // --- イベント作成 ---
-  function initCandidateRows() {
-    const tbody = document.getElementById('candidate-body');
-    tbody.innerHTML = '';
-    addCandidateRow();
-  }
-
-  function addCandidateRow() {
+  function addCandidateRow(y = "", m = "", d = "", t = "") {
     const tbody = document.getElementById('candidate-body');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="date" class="cand-date"></td>
-      <td><input type="text" class="cand-time" placeholder="1900" maxlength="4"></td>
+      <td style="white-space:nowrap;">
+        <span class="date-widget">
+          <input type="text" class="cand-year" placeholder="YYYY" maxlength="4" style="width:60px;" value="${y}">/
+          <input type="text" class="cand-month" placeholder="MM" maxlength="2" style="width:40px;" value="${m}">/
+          <input type="text" class="cand-day" placeholder="DD" maxlength="2" style="width:40px;" value="${d}">
+          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)">
+        </span>
+      </td>
+      <td><input type="text" class="cand-time" placeholder="1900" maxlength="4" style="width:100px; padding:7px; border:1px solid #ccc; border-radius:4px; text-align:center;" value="${t}"></td>
     `;
     tbody.appendChild(tr);
-    setupCandidateListeners(tr);
+    setupDateInputs(tr, true);
   }
 
-  function setupCandidateListeners(row) {
-    const timeInput = row.querySelector('.cand-time');
-    timeInput.addEventListener('blur', function(e) {
+  function setupDateInputs(container, isCandidateRow) {
+    const y = container.querySelector('.cand-year');
+    const m = container.querySelector('.cand-month');
+    const d = container.querySelector('.cand-day');
+    const t = container.querySelector('.cand-time');
+
+    y.addEventListener('input', () => { if(y.value.length === 4) m.focus(); if(isCandidateRow) checkAndAddCandRow(); });
+    m.addEventListener('input', () => { if(m.value.length === 2) d.focus(); if(isCandidateRow) checkAndAddCandRow(); });
+    d.addEventListener('input', () => { if(isCandidateRow) checkAndAddCandRow(); });
+    d.addEventListener('keydown', (e) => { if(e.key === 'Enter') { e.preventDefault(); t.focus(); } });
+    
+    t.addEventListener('input', () => { if(isCandidateRow) checkAndAddCandRow(); });
+    t.addEventListener('blur', (e) => {
       let val = e.target.value.replace(":", "");
       if(val.length === 4 && !isNaN(val)) e.target.value = val.substring(0,2) + ":" + val.substring(2,4);
-      checkAndAddRow(row);
     });
-    timeInput.addEventListener('keydown', function(e) { if(e.key === 'Enter') checkAndAddRow(row); });
+    t.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter') {
+        e.preventDefault();
+        let val = e.target.value.replace(":", "");
+        if(val.length === 4 && !isNaN(val)) e.target.value = val.substring(0,2) + ":" + val.substring(2,4);
+        if(isCandidateRow) {
+          const nextRow = container.closest('tr').nextElementSibling;
+          if(nextRow) nextRow.querySelector('.cand-year').focus();
+        }
+      }
+    });
   }
 
-  function checkAndAddRow(currentRow) {
+  function checkAndAddCandRow() {
     const tbody = document.getElementById('candidate-body');
-    if (currentRow.querySelector('.cand-date').value && currentRow.querySelector('.cand-time').value && currentRow === tbody.lastElementChild) {
+    const lastRow = tbody.lastElementChild;
+    if (lastRow.querySelector('.cand-year').value || lastRow.querySelector('.cand-month').value || 
+        lastRow.querySelector('.cand-day').value || lastRow.querySelector('.cand-time').value) {
       addCandidateRow();
     }
+  }
+
+  function syncPicker(picker) {
+    if(!picker.value) return;
+    const parts = picker.value.split('-');
+    const container = picker.parentElement;
+    container.querySelector('.cand-year').value = parts[0];
+    container.querySelector('.cand-month').value = parts[1];
+    container.querySelector('.cand-day').value = parts[2];
+    
+    const timeInput = container.parentElement.parentElement.querySelector('.cand-time');
+    if(timeInput) timeInput.focus();
+    checkAndAddCandRow(); // for candidate rows
   }
 
   async function executeCreateEvent() {
     const eventName = document.getElementById('event-name').value;
     if (!eventName) { showMessage("イベント名は必須です。"); return; }
 
+    const guests = [];
+    document.querySelectorAll('#guest-body tr').forEach(tr => {
+      const n = tr.querySelector('.guest-name').value.trim();
+      const e = tr.querySelector('.guest-email').value.trim();
+      if(n) { 
+        const id = tr.dataset.guestId || ('g_' + Date.now() + Math.floor(Math.random()*1000) + guests.length);
+        guests.push({ id: id, name: n, email: e });
+      }
+    });
+
     const candidates = [];
     document.querySelectorAll('#candidate-body tr').forEach(tr => {
-      const d = tr.querySelector('.cand-date').value;
-      const t = tr.querySelector('.cand-time').value;
-      if(d && t) candidates.push({ date: d, time: t });
+      const y = tr.querySelector('.cand-year').value.trim();
+      let m = tr.querySelector('.cand-month').value.trim();
+      let d = tr.querySelector('.cand-day').value.trim();
+      const t = tr.querySelector('.cand-time').value.trim();
+      if(y && m && d && t) {
+        if(m.length === 1) m = '0' + m;
+        if(d.length === 1) d = '0' + d;
+        candidates.push({ date: `${y}-${m}-${d}`, time: t });
+      }
     });
-    if(candidates.length === 0) { showMessage("最低1つの候補日時を入力してください。"); return; }
+    if(candidates.length === 0) { showMessage("候補日時を入力してください。"); return; }
+
+    let dy = document.getElementById('dl-year').value.trim();
+    let dm = document.getElementById('dl-month').value.trim();
+    let dd = document.getElementById('dl-day').value.trim();
+    let dt = document.getElementById('dl-time').value.trim();
+    if(dm.length === 1) dm = '0' + dm;
+    if(dd.length === 1) dd = '0' + dd;
+    let deadline = (dy && dm && dd && dt) ? `${dy}/${dm}/${dd} ${dt}` : "";
 
     document.getElementById('create-spinner').style.display = 'block';
     
-    const data = {
+    const payload = {
       eventName: eventName, location: document.getElementById('event-location').value,
-      memo: document.getElementById('event-memo').value,
-      deadline: document.getElementById('event-deadline-date').value + " " + document.getElementById('event-deadline-time').value,
-      candidates: candidates,
-      organizerName: loggedInUser.name, organizerEmail: loggedInUser.email
+      memo: document.getElementById('event-memo').value, deadline: deadline,
+      candidates: candidates, guests: guests, organizerName: loggedInUser.name, organizerEmail: loggedInUser.email
     };
 
     try {
-      const res = await callApi("createEvent", { data: data });
-      window.location.href = window.location.origin + window.location.pathname + "?eventId=" + res.eventId;
-    } catch(e) {
-      showMessage("作成エラー: " + e.message);
-      document.getElementById('create-spinner').style.display = 'none';
-    }
+      if (isEditMode) {
+        payload.eventId = currentEventId;
+        await callApi("updateEvent", { data: payload });
+        window.location.reload();
+      } else {
+        const res = await callApi("createEvent", { data: payload });
+        window.location.href = window.location.origin + window.location.pathname + "?eventId=" + res.eventId;
+      }
+    } catch(e) { showMessage(e.message); document.getElementById('create-spinner').style.display = 'none'; }
   }
 
-  // --- 回答・管理画面 ---
   async function loadEventData(eventId) {
     try {
       currentEventData = await callApi("getEvent", { eventId: eventId });
-      
       document.getElementById('ans-title').textContent = currentEventData.eventName;
       document.getElementById('ans-details').innerHTML = `
         <p style="margin:0 0 5px 0;"><strong>場所:</strong> ${currentEventData.location || "未設定"}</p>
         <p style="margin:0 0 5px 0;"><strong>主催者:</strong> ${currentEventData.organizerName}</p>
         <p style="margin:0; white-space:pre-wrap;"><strong>メッセージ:</strong><br>${currentEventData.memo || "なし"}</p>
       `;
-      
       renderAdminPanel();
       renderMatrix();
-    } catch(e) {
-      document.getElementById('ans-title').textContent = "エラー: イベントが見つかりません";
-      document.getElementById('ans-details').innerHTML = e.message;
-    }
+    } catch(e) { showMessage(e.message); }
   }
 
   function renderAdminPanel() {
-    const adminPanel = document.getElementById('admin-panel');
     if (loggedInUser && currentEventData && currentEventData.organizerEmail === loggedInUser.email) {
-      adminPanel.style.display = 'block';
-      
-      // 確定日時のプルダウンを生成
-      const select = document.getElementById('finalize-date');
-      select.innerHTML = '<option value="">-- 日時を選択 --</option>';
-      currentEventData.candidates.forEach(cand => {
-        const option = document.createElement('option');
-        const dt = `${cand.date} ${cand.time}`;
-        option.value = dt; option.textContent = dt;
-        select.appendChild(option);
-      });
+      document.getElementById('admin-edit-btn').style.display = 'inline-block';
+      document.getElementById('admin-action-panel').style.display = 'block';
     } else {
-      adminPanel.style.display = 'none';
-    }
-  }
-
-  // 管理者：招待メール送信
-  async function executeSendInvites() {
-    const emailsStr = document.getElementById('invite-emails').value;
-    const message = document.getElementById('invite-message').value;
-    
-    if(!emailsStr) { showMessage("メールアドレスを入力してください。"); return; }
-    
-    // 改行で分割し、空行を除去して配列化
-    const guests = emailsStr.split('\n').map(e => e.trim()).filter(e => e).map(e => ({email: e}));
-    if(guests.length === 0) { showMessage("有効なメールアドレスがありません。"); return; }
-
-    document.getElementById('invite-spinner').style.display = 'block';
-    
-    // フロントエンド側で正しい自分のURLを把握して裏側に送る
-    const baseUrl = window.location.origin + window.location.pathname;
-
-    try {
-      await callApi("sendInvites", {
-        data: { eventId: currentEventId, guests: guests, message: message, baseUrl: baseUrl }
-      });
-      showMessage("招待メールを送信しました！\n（送信元は " + currentEventData.organizerEmail + " に設定されています）");
-      document.getElementById('invite-emails').value = "";
-      document.getElementById('invite-message').value = "";
-    } catch(e) {
-      showMessage("送信エラー: " + e.message);
-    } finally {
-      document.getElementById('invite-spinner').style.display = 'none';
-    }
-  }
-
-  // 管理者：確定メール送信
-  async function executeFinalize() {
-    const date = document.getElementById('finalize-date').value;
-    const message = document.getElementById('finalize-message').value;
-    if(!date) { showMessage("確定する日時を選択してください。"); return; }
-
-    // 回答者の中からメールアドレスを入力している人を抽出
-    const guests = currentEventData.answers.filter(ans => ans.guestEmail).map(ans => ({email: ans.guestEmail}));
-    if (guests.length === 0) {
-      showMessage("メールアドレスを登録している回答者がいないため、送信できません。");
-      return;
-    }
-
-    document.getElementById('finalize-spinner').style.display = 'block';
-
-    try {
-      await callApi("finalizeDate", {
-        data: { eventId: currentEventId, guests: guests, fixedDate: date, message: message }
-      });
-      showMessage("確定メールを回答者全員に送信しました！");
-    } catch(e) {
-      showMessage("送信エラー: " + e.message);
-    } finally {
-      document.getElementById('finalize-spinner').style.display = 'none';
+      document.getElementById('admin-edit-btn').style.display = 'none';
+      document.getElementById('admin-action-panel').style.display = 'none';
     }
   }
 
   function renderMatrix() {
+    // 〇の数をカウント
+    let oCounts = new Array(currentEventData.candidates.length).fill(0);
+    (currentEventData.guests || []).forEach(guest => {
+      const ans = currentEventData.answers.find(a => a.guestId === guest.id);
+      if(ans) {
+        currentEventData.candidates.forEach((cand, index) => {
+          if(ans.answersMap[index] === '〇') oCounts[index]++;
+        });
+      }
+    });
+    const maxO = Math.max(...oCounts);
+    const showFixBtn = (loggedInUser && currentEventData.organizerEmail === loggedInUser.email && maxO > 0);
+
     let html = `<table><thead><tr><th>ゲスト名</th>`;
-    currentEventData.candidates.forEach(cand => { html += `<th>${cand.date}<br>${cand.time}</th>`; });
+    currentEventData.candidates.forEach((cand, index) => { 
+      let fixBtnHtml = "";
+      if (showFixBtn && oCounts[index] === maxO) {
+        fixBtnHtml = `<br><button class="btn btn-success" style="padding:2px 5px; font-size:12px; margin-top:5px; width:auto;" onclick="selectFinalDate(${index}, '${cand.date} ${cand.time}')">この日で確定</button>`;
+      }
+      html += `<th id="th-cand-${index}">${cand.date}<br>${cand.time}${fixBtnHtml}</th>`; 
+    });
     html += `</tr></thead><tbody>`;
     
-    currentEventData.answers.forEach(ans => {
-      html += `<tr><td style="font-weight:bold;">${ans.guestName}</td>`;
-      currentEventData.candidates.forEach((cand, index) => {
-        const mark = ans.answersMap[index] || "△";
-        const color = mark === '〇' ? 'color:#3498db; font-weight:bold;' : (mark === '×' ? 'color:#e74c3c;' : 'color:#999;');
-        html += `<td style="${color}">${mark}</td>`;
-      });
+    (currentEventData.guests || []).forEach(guest => {
+      html += `<tr><td style="font-weight:bold;">${guest.name}</td>`;
+      const ans = currentEventData.answers.find(a => a.guestId === guest.id);
+      
+      if (guest.id === currentGuestId) {
+        currentEventData.candidates.forEach((cand, index) => {
+          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "△";
+          const sO = mark === '〇' ? 'selected' : ''; const sD = mark === '△' ? 'selected' : ''; const sX = mark === '×' ? 'selected' : '';
+          html += `<td><select id="ans-select-${index}" style="padding:5px; width:100%; border-radius:4px;"><option value="〇" ${sO}>〇</option><option value="△" ${sD}>△</option><option value="×" ${sX}>×</option></select></td>`;
+        });
+        document.getElementById('guest-submit-area').style.display = 'block';
+      } else {
+        currentEventData.candidates.forEach((cand, index) => {
+          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "△";
+          const color = mark === '〇' ? 'color:#3498db; font-weight:bold;' : (mark === '×' ? 'color:#e74c3c;' : 'color:#999;');
+          html += `<td style="${color}">${mark}</td>`;
+        });
+      }
       html += `</tr>`;
     });
-    
-    html += `<tr style="background:#f1f8ff;"><td><span style="color:#555; font-size:0.9em;">(あなたの回答)</span></td>`;
-    currentEventData.candidates.forEach((cand, index) => {
-      html += `<td>
-        <select id="ans-select-${index}" style="padding:5px; width:100%; border-radius:4px; border:1px solid #ccc; outline:none;">
-          <option value="〇">〇</option>
-          <option value="△" selected>△</option>
-          <option value="×">×</option>
-        </select>
-      </td>`;
-    });
-    html += `</tr></tbody></table>`;
-    
+    html += `</tbody></table>`;
     document.getElementById('matrix-container').innerHTML = html;
   }
 
+  function selectFinalDate(index, dateTimeStr) {
+    document.querySelectorAll('th[id^="th-cand-"]').forEach(th => th.style.background = '#f8f9fa');
+    document.getElementById(`th-cand-${index}`).style.background = '#ffe0b2'; // 選択状態をオレンジに
+    finalDateSelected = dateTimeStr;
+    showMessage(`「${dateTimeStr}」を確定日として選択しました。\n下部の「確定メールを送信」を押すと通知されます。`);
+  }
+
   async function executeSubmitAnswer() {
-    const name = document.getElementById('guest-name').value.trim();
-    if(!name) { showMessage("お名前は必須です。"); return; }
+    const guest = currentEventData.guests.find(g => g.id === currentGuestId);
+    if(!guest) { showMessage("ゲスト情報が見つかりません。"); return; }
     
     let answersMap = {};
     currentEventData.candidates.forEach((cand, index) => {
@@ -528,17 +601,34 @@
     });
 
     document.getElementById('ans-spinner').style.display = 'block';
-
     try {
-      await callApi("submitAnswer", {
-        data: { eventId: currentEventId, guestName: name, guestEmail: document.getElementById('guest-email').value, answersMap: answersMap }
-      });
-      showMessage("回答を送信しました！");
+      await callApi("submitAnswer", { data: { eventId: currentEventId, guestId: guest.id, guestName: guest.name, guestEmail: guest.email, answersMap: answersMap } });
+      showMessage("回答を保存しました！");
       setTimeout(() => { window.location.reload(); }, 1500);
-    } catch(e) {
-      showMessage("送信エラー: " + e.message);
-      document.getElementById('ans-spinner').style.display = 'none';
-    }
+    } catch(e) { showMessage(e.message); document.getElementById('ans-spinner').style.display = 'none'; }
+  }
+
+  async function executeSendInvites() {
+    const guestsToInvite = currentEventData.guests.filter(g => g.email);
+    if(guestsToInvite.length === 0) { showMessage("送信先のメールアドレスが登録されていません。"); return; }
+    
+    document.getElementById('admin-spinner').style.display = 'block';
+    const baseUrl = window.location.origin + window.location.pathname;
+    try {
+      await callApi("sendInvites", { data: { eventId: currentEventId, guestsToInvite: guestsToInvite, baseUrl: baseUrl } });
+      showMessage("招待メールを送信しました！");
+    } catch(e) { showMessage(e.message); } 
+    finally { document.getElementById('admin-spinner').style.display = 'none'; }
+  }
+
+  async function executeFinalize() {
+    if(!finalDateSelected) { showMessage("マトリクス表のヘッダーにある「この日で確定」ボタンを押して、日程を選択してください。"); return; }
+    document.getElementById('admin-spinner').style.display = 'block';
+    try {
+      await callApi("finalizeDate", { data: { eventId: currentEventId, fixedDate: finalDateSelected, message: document.getElementById('finalize-message').value } });
+      showMessage("確定メールを送信しました！");
+    } catch(e) { showMessage(e.message); } 
+    finally { document.getElementById('admin-spinner').style.display = 'none'; }
   }
 </script>
 </body>
