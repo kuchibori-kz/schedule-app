@@ -114,7 +114,7 @@
           <input type="text" id="dl-year" class="cand-year" placeholder="YYYY" maxlength="4" style="width:60px;">/
           <input type="text" id="dl-month" class="cand-month" placeholder="MM" maxlength="2" style="width:40px;">/
           <input type="text" id="dl-day" class="cand-day" placeholder="DD" maxlength="2" style="width:40px;">
-          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)">
+          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)" tabindex="-1">
         </span>
         <input type="text" id="dl-time" class="cand-time" placeholder="1900" maxlength="4" style="width:100px; padding:7px; border:1px solid #ccc; border-radius:4px; text-align:center;">
       </div>
@@ -171,7 +171,7 @@
   // ==========================================
   // ★重要：ここにあなたのGASのURL（/exec）を貼り付けます
   // ==========================================
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyq0RHopOCeCge1nMALf-VF_Drne71YFc5ZqksSv48cZpaaLSiX2dCyvEP1ZZJT4TVTfQ/exec"; 
+  const GAS_API_URL = "YOUR_GAS_WEB_APP_URL_HERE"; 
   
   let currentEventId = null;
   let currentGuestId = null;
@@ -396,7 +396,7 @@
           <input type="text" class="cand-year" placeholder="YYYY" maxlength="4" style="width:60px;" value="${y}">/
           <input type="text" class="cand-month" placeholder="MM" maxlength="2" style="width:40px;" value="${m}">/
           <input type="text" class="cand-day" placeholder="DD" maxlength="2" style="width:40px;" value="${d}">
-          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)">
+          <input type="date" style="width:25px; cursor:pointer;" onchange="syncPicker(this)" tabindex="-1">
         </span>
       </td>
       <td><input type="text" class="cand-time" placeholder="1900" maxlength="4" style="width:100px; padding:7px; border:1px solid #ccc; border-radius:4px; text-align:center;" value="${t}"></td>
@@ -411,15 +411,14 @@
     const d = container.querySelector('.cand-day');
     const t = container.querySelector('.cand-time');
 
-    y.addEventListener('input', () => { if(y.value.length === 4) m.focus(); if(isCandidateRow) checkAndAddCandRow(); });
-    m.addEventListener('input', () => { if(m.value.length === 2) d.focus(); if(isCandidateRow) checkAndAddCandRow(); });
-    d.addEventListener('input', () => { if(isCandidateRow) checkAndAddCandRow(); });
+    y.addEventListener('input', () => { if(y.value.length === 4) m.focus(); });
+    m.addEventListener('input', () => { if(m.value.length === 2) d.focus(); });
     d.addEventListener('keydown', (e) => { if(e.key === 'Enter') { e.preventDefault(); t.focus(); } });
     
-    t.addEventListener('input', () => { if(isCandidateRow) checkAndAddCandRow(); });
     t.addEventListener('blur', (e) => {
       let val = e.target.value.replace(":", "");
       if(val.length === 4 && !isNaN(val)) e.target.value = val.substring(0,2) + ":" + val.substring(2,4);
+      if(isCandidateRow) checkAndAddCandRow();
     });
     t.addEventListener('keydown', (e) => {
       if(e.key === 'Enter') {
@@ -427,8 +426,11 @@
         let val = e.target.value.replace(":", "");
         if(val.length === 4 && !isNaN(val)) e.target.value = val.substring(0,2) + ":" + val.substring(2,4);
         if(isCandidateRow) {
+          checkAndAddCandRow();
           const nextRow = container.closest('tr').nextElementSibling;
           if(nextRow) nextRow.querySelector('.cand-year').focus();
+        } else {
+          document.getElementById('create-btn').focus();
         }
       }
     });
@@ -437,8 +439,8 @@
   function checkAndAddCandRow() {
     const tbody = document.getElementById('candidate-body');
     const lastRow = tbody.lastElementChild;
-    if (lastRow.querySelector('.cand-year').value || lastRow.querySelector('.cand-month').value || 
-        lastRow.querySelector('.cand-day').value || lastRow.querySelector('.cand-time').value) {
+    if (lastRow.querySelector('.cand-year').value && lastRow.querySelector('.cand-month').value && 
+        lastRow.querySelector('.cand-day').value && lastRow.querySelector('.cand-time').value) {
       addCandidateRow();
     }
   }
@@ -453,7 +455,6 @@
     
     const timeInput = container.parentElement.parentElement.querySelector('.cand-time');
     if(timeInput) timeInput.focus();
-    checkAndAddCandRow(); // for candidate rows
   }
 
   async function executeCreateEvent() {
