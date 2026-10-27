@@ -52,6 +52,17 @@
   </div>
 </div>
 
+<div id="address-book-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+  <div class="modal-content" style="text-align:left;">
+    <h3 style="margin-top:0; color:#2c3e50;">📖 アドレス帳から追加</h3>
+    <div id="address-book-list" style="margin-bottom:20px; max-height:250px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:4px;">読み込み中...</div>
+    <div style="display:flex; justify-content:space-between; gap:10px;">
+      <button class="btn-secondary" style="width:50%;" onclick="closeAddressBook()">キャンセル</button>
+      <button class="btn" style="width:50%;" onclick="addSelectedGuests()">チェックした人を追加</button>
+    </div>
+  </div>
+</div>
+
 <div class="container">
   
   <!-- 全体アナウンス用バナー -->
@@ -103,16 +114,16 @@
     <div class="form-group"><label>場所</label><input type="text" id="event-location"></div>
     <div class="form-group"><label>ゲストへのメッセージ</label><textarea id="event-memo" rows="3"></textarea></div>
     
-    <label>招待予定のゲスト (最終行でEnterを押すと自動追加)</label>
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;">
+      <label style="margin:0;">招待予定のゲスト (最終行でEnterを押すと自動追加)</label>
+      <button class="btn-secondary" style="width:auto; padding:5px 15px; font-size:13px;" onclick="openAddressBook()">📖 アドレス帳から選ぶ</button>
+    </div>
     <table id="guest-table">
       <thead><tr><th>氏名</th><th>メールアドレス</th></tr></thead>
       <tbody id="guest-body"></tbody>
     </table>
 
-    <label>日程候補 (最終行でEnterを押すと自動追加)</label>
-    <table id="candidate-table">
-      <thead><tr><th>日付 (カレンダー選択可)</th><th>時間</th></tr></thead>
-      <tbody id="candidate-body"></tbody>
+    <label style="margin-top: 20px;">日程候補 (最終行でEnterを押すと自動追加)</label>
     </table>
     
     <div class="form-group" style="margin-top: 30px;">
@@ -213,6 +224,66 @@
     document.getElementById('msg-modal').style.display = 'flex';
   }
   function closeMessage() { document.getElementById('msg-modal').style.display = 'none'; }
+
+  let addressBookGuests = [];
+
+  async function openAddressBook() {
+    document.getElementById('address-book-modal').style.display = 'flex';
+    const listContainer = document.getElementById('address-book-list');
+    listContainer.innerHTML = '読み込み中...';
+    try {
+      const res = await callApi("getAddressBook", { email: loggedInUser.email });
+      addressBookGuests = res;
+      if (addressBookGuests.length === 0) {
+        listContainer.innerHTML = '<p style="color:#777; text-align:center;">過去に登録されたゲストはいません。</p>';
+        return;
+      }
+      let html = '';
+      addressBookGuests.forEach((g, idx) => {
+        html += `<div style="margin-bottom:10px; border-bottom:1px dashed #eee; padding-bottom:5px;">
+          <label style="display:flex; align-items:center; font-weight:normal; cursor:pointer;">
+            <input type="checkbox" class="address-check" data-idx="${idx}" style="margin-right:10px; transform:scale(1.2);">
+            ${g.name} <span style="color:#777; margin-left:10px; font-size:0.9em;">(${g.email})</span>
+          </label>
+        </div>`;
+      });
+      listContainer.innerHTML = html;
+    } catch(e) {
+      listContainer.innerHTML = '<p style="color:red;">読み込みに失敗しました。</p>';
+    }
+  }
+
+  function closeAddressBook() { document.getElementById('address-book-modal').style.display = 'none'; }
+
+  function addSelectedGuests() {
+    const checks = document.querySelectorAll('.address-check:checked');
+    const tbody = document.getElementById('guest-body');
+    
+    checks.forEach(chk => {
+      const guest = addressBookGuests[chk.dataset.idx];
+      let added = false;
+      const rows = tbody.querySelectorAll('tr');
+      // 空いている行を優先して埋める
+      for(let i=0; i<rows.length; i++) {
+        const nInput = rows[i].querySelector('.guest-name');
+        const eInput = rows[i].querySelector('.guest-email');
+        if (!nInput.value && !eInput.value) {
+          nInput.value = guest.name;
+          eInput.value = guest.email;
+          added = true;
+          if (i === rows.length - 1) checkAndAddGuestRow();
+          break;
+        }
+      }
+      // 空きがなければ新しい行を追加
+      if (!added) {
+        addGuestRow(guest.name, guest.email);
+        checkAndAddGuestRow();
+      }
+    });
+    closeAddressBook();
+    if (checks.length > 0) showMessage(checks.length + "名のゲストを追加しました。");
+  }
 
   function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
