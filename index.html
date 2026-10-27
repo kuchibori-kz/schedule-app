@@ -30,6 +30,10 @@
     .auth-tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; color: #777; transition: 0.3s; }
     .auth-tab.active { color: #3498db; border-bottom: 3px solid #3498db; margin-bottom: -2px; }
     
+    /* 管理者用バナーとリストのスタイル */
+    .admin-banner { background: #f39c12; color: white; padding: 10px; text-align: center; font-weight: bold; border-radius: 4px; margin-bottom: 20px; display: none; }
+    .admin-event-item { border-left: 4px solid #9b59b6; background: #fdfaf6; }
+    
     /* カレンダーピッカー付き入力欄のスタイル */
     .date-widget { display:inline-flex; align-items:center; border:1px solid #ccc; border-radius:4px; padding:2px; background:#fff; }
     .date-widget input { border:none; padding:5px; text-align:center; outline:none; }
@@ -49,6 +53,9 @@
 </div>
 
 <div class="container">
+  
+  <!-- 全体アナウンス用バナー -->
+  <div id="global-banner" class="admin-banner"></div>
   
   <!-- 1. ログイン / 新規登録 画面 -->
   <div id="auth-view" class="view-section">
@@ -78,6 +85,7 @@
     <div class="header-flex">
       <h1 id="dash-title">ダッシュボード</h1>
       <div>
+        <button id="admin-settings-btn" class="btn-secondary" onclick="openAdminView()" style="display:none; margin-right: 10px; background:#9b59b6; color:white; border:none;">👑 管理画面</button>
         <button class="btn-secondary" onclick="logout()" style="margin-right: 10px;">ログアウト</button>
         <button class="btn" style="width:auto;" onclick="openCreateMode()">＋ 新規イベント作成</button>
       </div>
@@ -165,6 +173,25 @@
       <button class="btn-secondary" onclick="loadDashboard()">HOME (ダッシュボードへ戻る)</button>
     </div>
   </div>
+
+  <!-- 5. 管理者専用 システム管理画面 -->
+  <div id="admin-view" class="view-section">
+    <div class="header-flex">
+      <h1>👑 システム管理画面</h1>
+      <button class="btn-secondary" onclick="loadDashboard()">ダッシュボードへ戻る</button>
+    </div>
+    
+    <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:4px; border:1px solid #ddd;">
+      <label>全体アナウンスメッセージ（空欄にすると非表示になります）</label>
+      <textarea id="admin-msg-input" rows="2" placeholder="メンテナンス情報などを入力"></textarea>
+      <button class="btn" style="width:auto; margin-top:10px; background:#f39c12;" onclick="executeSaveAdminSettings()">メッセージを更新</button>
+      <div id="admin-settings-spinner" class="spinner">保存中...</div>
+    </div>
+    
+    <h2>現在展開中の全アンケート</h2>
+    <div id="admin-all-events-container">読み込み中...</div>
+  </div>
+
 </div>
 
 <script>
@@ -179,6 +206,7 @@
   let loggedInUser = null; 
   let isEditMode = false;
   let finalDateSelected = "";
+  let isAdmin = false;
 
   function showMessage(text) {
     document.getElementById('msg-text').innerHTML = text.replace(/\n/g, '<br>');
@@ -207,6 +235,9 @@
     
     const session = localStorage.getItem('appSession');
     if (session) loggedInUser = JSON.parse(session);
+
+    // 最初に管理者設定とバナーメッセージを取得
+    fetchGlobalSettings();
 
     if (eventId) {
       currentEventId = eventId;
@@ -269,6 +300,7 @@
     loggedInUser = user;
     localStorage.setItem('appSession', JSON.stringify(user));
     localStorage.setItem('savedEmail', user.email);
+    fetchGlobalSettings(); // ログイン直後に権限を再確認
     if (currentEventId) { switchView('answer-view'); renderAdminPanel(); } 
     else { loadDashboard(); }
   }
@@ -282,6 +314,14 @@
   async function loadDashboard() {
     switchView('dashboard-view');
     document.getElementById('dash-title').textContent = `${loggedInUser.name} さんのダッシュボード`;
+    
+    // 管理者の場合は管理ボタンを表示
+    if (isAdmin) {
+      document.getElementById('admin-settings-btn').style.display = 'inline-block';
+    } else {
+      document.getElementById('admin-settings-btn').style.display = 'none';
+    }
+    
     const container = document.getElementById('event-list-container');
     container.innerHTML = "読込中...";
     try {
@@ -630,6 +670,69 @@
       showMessage("確定メールを送信しました！");
     } catch(e) { showMessage(e.message); } 
     finally { document.getElementById('admin-spinner').style.display = 'none'; }
+  }
+
+  // =========================================
+  // 管理者専用機能
+  // =========================================
+  async function fetchGlobalSettings() {
+    try {
+      const email = loggedInUser ? loggedInUser.email : "";
+      const res = await callApi("getAdminSettings", { email: email });
+      if (res.message) {
+        const banner = document.getElementById('global-banner');
+        banner.textContent = res.message;
+        banner.style.display = 'block';
+      } else {
+        document.getElementById('global-banner').style.display = 'none';
+      }
+      isAdmin = res.isAdmin;
+      if (isAdmin && document.getElementById('dashboard-view').classList.contains('active-view')) {
+        document.getElementById('admin-settings-btn').style.display = 'inline-block';
+      }
+    } catch(e) { console.error("設定取得エラー", e); }
+  }
+
+  async function openAdminView() {
+    switchView('admin-view');
+    const container = document.getElementById('admin-all-events-container');
+    container.innerHTML = "読み込み中...";
+    try {
+      const res = await callApi("getAllEventsAdmin", { email: loggedInUser.email });
+      document.getElementById('admin-msg-input').value = res.settingsMessage || "";
+      
+      if(res.events.length === 0) {
+        container.innerHTML = "<p>現在展開中のイベントはありません。</p>";
+        return;
+      }
+      
+      let html = "";
+      res.events.forEach(ev => {
+        const url = window.location.origin + window.location.pathname + "?eventId=" + ev.eventId;
+        html += `<div class="dashboard-item admin-event-item">
+            <div>
+              <strong>${ev.eventName}</strong><br>
+              <small>主催者: ${ev.organizerName} (${ev.organizerEmail})</small><br>
+              <small>締切: ${ev.deadline}</small>
+            </div>
+            <a href="${url}" class="btn-secondary" style="text-decoration:none; color:white;">詳細を開く</a>
+          </div>`;
+      });
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = `<p style="color:red;">エラー: ${e.message}</p>`;
+    }
+  }
+
+  async function executeSaveAdminSettings() {
+    const msg = document.getElementById('admin-msg-input').value;
+    document.getElementById('admin-settings-spinner').style.display = 'block';
+    try {
+      await callApi("saveAdminSettings", { email: loggedInUser.email, message: msg });
+      showMessage("全体アナウンスメッセージを更新しました。");
+      fetchGlobalSettings(); // バナー表示を即時反映
+    } catch(e) { showMessage(e.message); }
+    finally { document.getElementById('admin-settings-spinner').style.display = 'none'; }
   }
 </script>
 </body>
