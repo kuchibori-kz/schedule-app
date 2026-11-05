@@ -165,7 +165,8 @@
     <div id="matrix-container" style="overflow-x:auto;"></div>
     
     <div id="guest-submit-area" style="display:none; margin-top:20px; text-align:center; padding-top:20px; border-top:2px dashed #ccc;">
-      <button class="btn btn-success" style="width:auto; padding:15px 40px; font-size:18px;" onclick="executeSubmitAnswer()">自分の回答を保存する</button>
+      <div id="ans-status-msg" style="margin-bottom:15px;"></div>
+      <button id="submit-ans-btn" class="btn btn-success" style="width:auto; padding:15px 40px; font-size:18px;" onclick="executeSubmitAnswer()">自分の回答を保存する</button>
       <div id="ans-spinner" class="spinner">保存中...</div>
     </div>
     
@@ -212,7 +213,7 @@
   // ==========================================
   // ★重要：ここにあなたのGASのURL（/exec）を貼り付けます
   // ==========================================
-  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyq0RHopOCeCge1nMALf-VF_Drne71YFc5ZqksSv48cZpaaLSiX2dCyvEP1ZZJT4TVTfQ/exec"; 
+  const GAS_API_URL = "https://script.google.com/macros/s/YOUR_GAS_WEB_APP_URL_HERE/exec"; 
   
   let currentEventId = null;
   let currentGuestId = null;
@@ -323,6 +324,9 @@
   };
 
   async function callApi(action, payload) {
+    if (GAS_API_URL.includes("YOUR_GAS_WEB_APP_URL_HERE")) {
+      throw new Error("システムエラー: GAS_API_URL が初期設定のままです。実際のデプロイURLに書き換えてください。");
+    }
     const response = await fetch(GAS_API_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
@@ -664,6 +668,7 @@
     });
     const maxO = Math.max(...oCounts);
     const showFixBtn = (loggedInUser && currentEventData.organizerEmail === loggedInUser.email && maxO > 0);
+    let isCurrentUserAnswered = false;
 
     let html = `<table><thead><tr><th>ゲスト名</th>`;
     currentEventData.candidates.forEach((cand, index) => { 
@@ -680,15 +685,15 @@
       const ans = currentEventData.answers.find(a => a.guestId === guest.id);
       
       if (guest.id === currentGuestId) {
+        if (ans) isCurrentUserAnswered = true;
         currentEventData.candidates.forEach((cand, index) => {
-          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "△";
-          const sO = mark === '〇' ? 'selected' : ''; const sD = mark === '△' ? 'selected' : ''; const sX = mark === '×' ? 'selected' : '';
-          html += `<td><select id="ans-select-${index}" style="padding:5px; width:100%; border-radius:4px;"><option value="〇" ${sO}>〇</option><option value="△" ${sD}>△</option><option value="×" ${sX}>×</option></select></td>`;
+          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "";
+          const sO = mark === '〇' ? 'selected' : ''; const sD = mark === '△' ? 'selected' : ''; const sX = mark === '×' ? 'selected' : ''; const sEmpty = mark === '' ? 'selected' : '';
+          html += `<td><select id="ans-select-${index}" style="padding:5px; width:100%; border-radius:4px;"><option value="" ${sEmpty}>-</option><option value="〇" ${sO}>〇</option><option value="△" ${sD}>△</option><option value="×" ${sX}>×</option></select></td>`;
         });
-        document.getElementById('guest-submit-area').style.display = 'block';
       } else {
         currentEventData.candidates.forEach((cand, index) => {
-          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "△";
+          const mark = ans && ans.answersMap[index] ? ans.answersMap[index] : "-";
           const color = mark === '〇' ? 'color:#3498db; font-weight:bold;' : (mark === '×' ? 'color:#e74c3c;' : 'color:#999;');
           html += `<td style="${color}">${mark}</td>`;
         });
@@ -697,6 +702,22 @@
     });
     html += `</tbody></table>`;
     document.getElementById('matrix-container').innerHTML = html;
+
+    // 回答状態に応じたUIの切り替え
+    if (currentGuestId) {
+      document.getElementById('guest-submit-area').style.display = 'block';
+      const msgDiv = document.getElementById('ans-status-msg');
+      const submitBtn = document.getElementById('submit-ans-btn');
+      if (isCurrentUserAnswered) {
+        msgDiv.innerHTML = '<span style="color:#27ae60; font-weight:bold; font-size:1.1em;">✅ あなたの回答は保存されています。</span><br><span style="font-size:0.9em; color:#555;">内容を変更する場合は、再選択して更新ボタンを押してください。</span>';
+        submitBtn.textContent = '回答を更新する';
+        submitBtn.className = 'btn btn-secondary';
+      } else {
+        msgDiv.innerHTML = '<span style="color:#e67e22; font-weight:bold; font-size:1.1em;">⚠️ まだ回答が保存されていません。</span><br><span style="font-size:0.9em; color:#555;">すべての日程を選択し、下のボタンを押して完了してください。</span>';
+        submitBtn.textContent = '自分の回答を保存する';
+        submitBtn.className = 'btn btn-success';
+      }
+    }
   }
 
   function selectFinalDate(index, dateTimeStr) {
@@ -711,9 +732,17 @@
     if(!guest) { showMessage("ゲスト情報が見つかりません。"); return; }
     
     let answersMap = {};
+    let hasEmpty = false;
     currentEventData.candidates.forEach((cand, index) => {
-      answersMap[index] = document.getElementById(`ans-select-${index}`).value;
+      const val = document.getElementById(`ans-select-${index}`).value;
+      if (val === "") hasEmpty = true;
+      answersMap[index] = val;
     });
+
+    if (hasEmpty) {
+      showMessage("未回答の日程があります。すべての日程について「〇」「△」「×」を選択してください。");
+      return;
+    }
 
     document.getElementById('ans-spinner').style.display = 'block';
     try {
